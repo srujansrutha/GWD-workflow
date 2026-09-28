@@ -1,0 +1,21 @@
+# Python and notebook state
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# Dataset downloads, generated YOLO splits, and Ultralytics caches
+data/raw/
+data/yolo/images/
+data/yolo/labels/
+data/yolo/*.cache
+
+# Model artifacts and experiment outputs
+weights/*.pt
+runs/
+
+# Local environment files
+.env
+.DS_Store
+Thumbs.db

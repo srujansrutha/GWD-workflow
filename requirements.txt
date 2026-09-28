@@ -1,0 +1,8 @@
+ultralytics>=8.4
+torch>=2.5
+numpy>=1.26
+pandas>=2.2
+matplotlib>=3.8
+Pillow>=10.0
+jupyter>=1.0
+kaggle>=1.6
