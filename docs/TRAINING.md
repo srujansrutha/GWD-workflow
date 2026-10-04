@@ -182,9 +182,13 @@ Both start from **COCO-pretrained weights** (transfer learning): the network alr
 - **mAP50:** AP when a match needs IoU of at least 0.50 (a loose match). It answers "did the model find the head?".
 - **mAP50-95:** AP averaged over IoU thresholds 0.50, 0.55, …, 0.95. It answers "did the model find it **and** box it tightly?". It punishes loose boxes heavily, which is why it is much lower than mAP50.
 - **Precision and recall in the summary** are reported at the confidence that maximizes F1.
-- **Fitness** (used to pick `best.pt` and for early stopping) = 0.1 × mAP50 + 0.9 × mAP50-95.
+- **Fitness** (used to pick `best.pt` and for early stopping) is **mAP50-95 alone** in the installed Ultralytics 8.4.164 (weights `[P, R, mAP50, mAP50-95] = [0, 0, 0, 1]`). Older versions used 0.1 × mAP50 + 0.9 × mAP50-95.
+- **F1** = 2 × precision × recall / (precision + recall): high only when both are high. **mAP75** is AP at IoU ≥ 0.75.
+- **Count scores** (MAE, RMSE, bias, MAPE) judge the *number* of heads per photo, not the boxes. The app's accuracy table reports the median absolute % error and the relative total bias.
 
 Ultralytics uses COCO-style mAP, which differs from the Kaggle leaderboard metric, so our numbers are not comparable to leaderboard scores.
+
+**Full reference:** [METRICS.md](METRICS.md) explains every score (IoU, TP/FP/FN, precision, recall, F1, AP, mAP50/75/50-95, all 12 COCO metrics, count scores), how this project computes them, and our results in those terms (F1, MAE, RMSE, bias, MAPE and more).
 
 **Why the gap is bigger for mAP50-95 than mAP50** (0.153 vs 0.055 for the baseline): on unseen farms the model usually still finds the heads (recall holds up) but boxes are less precise, since head size, density and appearance differ from what it learned.
 
@@ -414,6 +418,24 @@ It depends on the use. For counting heads or estimating yield, finding them (mAP
 **Q: What are precision and recall here, and how did they change?**
 Precision is the fraction of predicted boxes that are real heads, recall is the fraction of real heads found. For the combined model on `val`, precision is 0.92 and recall 0.89. On `test`, precision is 0.90 and recall 0.86, so it both misses more heads and makes slightly more false detections on unseen farms.
 
+**Q: What is the difference between F1 and mAP?**
+F1 is one number at one confidence threshold: it balances precision and recall (2PR/(P+R)). mAP summarizes the whole precision-recall curve over all confidence thresholds. So F1 describes how the model behaves at the setting you deploy, and mAP describes the model overall. For this model, F1 on familiar farms is about 0.91, and mAP50 is about 0.95.
+
+**Q: Why not just report accuracy?**
+Accuracy needs a count of correctly rejected negatives, and in detection that is every empty patch of an image, an almost unlimited number. Accuracy would always look near 100% and say nothing. I report precision, recall, F1 and mAP for the boxes, and count error for the totals.
+
+**Q: Which IoU threshold does non-maximum suppression use, and is it the same as the one in evaluation?**
+No. The NMS IoU (0.7 here) compares predictions with other predictions to delete duplicates. The evaluation IoU (0.5 up to 0.95) compares predictions with the true boxes to decide what counts as correct. They are separate settings.
+
+**Q: What are the 12 COCO metrics?**
+Six AP and six average-recall (AR) numbers. AP overall (IoU 0.5 to 0.95), AP50, AP75, and AP for small, medium and large objects. AR with at most 1, 10 and 100 detections per image, and AR for small, medium and large objects. COCO's size groups come from box area, under 32² pixels small and over 96² large. Ultralytics reports only a subset (precision, recall, mAP50, mAP75, mAP50-95), and I would add size-split scores if I needed to know whether tiny heads are the problem.
+
+**Q: How do you evaluate counting, and why is bias not enough?**
+I compare predicted and hand-labelled counts per photo. MAE is the average miss in heads, RMSE punishes big misses more, bias shows whether it over- or under-counts, and MAPE gives it as a percentage. Bias alone can hide errors: misses of +10 and -10 average to zero bias but are still 10 heads off, so I always report an error size next to the bias. On `val` the MAE is 2.65 heads on photos averaging 36 heads, with about 3% over-counting.
+
+**Q: A count can be right while the boxes are wrong. How is that possible?**
+A missed head and a false box on a leaf cancel in the total. So I check both: detection scores for the boxes, and count scores for the totals.
+
 ### Training
 
 **Q: Why transfer learning?**
@@ -432,7 +454,7 @@ Each one targets a real source of variation between farms. Mosaic mixes scales a
 It disables mosaic for the final epochs. Mosaic images are artificial composites, so finishing on natural single images aligns training with what the model sees at inference.
 
 **Q: How do you know when to stop training?**
-Early stopping (`patience`) on a validation fitness score, 0.1·mAP50 + 0.9·mAP50-95. Also read the curves: if validation is still rising at the end, you stopped too early, as with the 60-epoch baseline. If train loss falls while validation stalls, you are overfitting.
+Early stopping (`patience`) on the validation fitness score, which is mAP50-95 in the Ultralytics version used here (older versions blended in 0.1 of mAP50). Also read the curves: if validation is still rising at the end, you stopped too early, as with the 60-epoch baseline. If train loss falls while validation stalls, you are overfitting.
 
 **Q: What does "best.pt" mean?**
 The checkpoint with the best validation fitness during training. Ultralytics also keeps `last.pt` for resuming, and the saved weights are an exponential moving average of the training weights, which tend to be smoother and slightly better.
@@ -521,6 +543,13 @@ Fixed seed and deterministic mode, saved arguments in each run folder (`args.yam
 | **Smoke test** | A very short run to prove nothing crashes and memory fits |
 | **Ablation** | Removing or changing one component to measure its effect |
 | **Leakage** | Information from the evaluation set influencing training or model selection |
+| **TP / FP / FN** | True positive (a correct box), false positive (a box with no real head), false negative (a missed head) |
+| **F1** | Balance of precision and recall: 2PR / (P + R) |
+| **AR** | Average recall: recall averaged over IoU thresholds, under a cap on detections per image |
+| **MAE / RMSE** | Mean absolute error and root mean squared error of the head count per photo; RMSE punishes big misses more |
+| **Bias** | Average signed count error; negative means undercounting |
+| **MAPE** | Mean absolute percentage error of the count; undefined for photos with zero real heads |
+| **Calibration** | Whether a confidence of 0.9 really means about 90% chance of being right |
 
 ---
 

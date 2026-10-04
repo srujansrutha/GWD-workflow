@@ -45,10 +45,27 @@ Gains on unseen farms were small (+0.007 and +0.018) and the generalization gap 
 
 More diverse training farms doubled the `test2` score with the same model, while a bigger model added nothing reliable on top. Details and the leakage checks are in [docs/TRAINING.md](docs/TRAINING.md) section 8.3.
 
+## Wheat Head Counter App
+
+A Streamlit app in [frontend/](frontend/) that detects and counts wheat heads in uploaded photos (any common image format, one or many at once). The model is loaded onto the GPU the first time the page is opened (the launcher opens it for you) and then stays there until you stop the app, even with no browser open.
+
+```powershell
+frontend\run_app.bat          # or: cd frontend; ..\.venv\Scripts\python -m streamlit run app.py
+```
+
+Then open http://localhost:8501. The app shows annotated images, a count per image, a summary table, and downloads for annotated pictures (ZIP) and counts (CSV). Move the confidence slider to filter detections instantly without re-running the model.
+
+- **Weights:** `weights/wheat_yolo11s_gwhd21.pt` (the YOLO11s model trained on the old + 2021 data). Set the `WHEAT_MODEL` environment variable to use another file. Weights are not versioned in Git.
+- **Default confidence 0.25** gave the most accurate counts on labelled test photos (median error about 5-6% on familiar farms, 13% on farms from other countries).
+- **Stopping:** press Ctrl+C in its window, or end the process listening on port 8501. After editing the code, restart the app (file watching is off to keep the GPU model stable).
+- The app listens on `localhost` only. To share it on your network, start it with `--server.address 0.0.0.0` (there is no login).
+
 ## Layout
 
 - `docs/TRAINING.md`: detailed training guide, experiment history, and interview Q&A.
+- `docs/METRICS.md`: every detection and counting metric explained, with this project's results in those terms.
 - `notebooks/train.ipynb`: data preparation, training, evaluation, and qualitative inspection.
+- `frontend/`: the Streamlit counting app (`app.py`, `wheat_detector.py`, `run_app.bat`).
 - `notebooks/train_gwhd2021.ipynb`: adds the 2021 dataset, checks for leakage, trains and compares models.
 - `data/raw/`: Kaggle download containing `train.csv` and the source images. Ignored by Git.
 - `data/yolo/`: generated YOLO images, labels, and dataset definitions. Ignored by Git.

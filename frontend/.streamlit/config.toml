@@ -1,0 +1,16 @@
+[server]
+headless = true
+address = "localhost"
+port = 8501
+runOnSave = false
+fileWatcherType = "none"      # keep the app (and the GPU model) stable while it runs
+maxUploadSize = 200
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"
+
+[theme]
+primaryColor = "#16a34a"
