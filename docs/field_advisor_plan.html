@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding:0}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Field Advisor Plan</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=JetBrains+Mono:wght@500&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout concept: a working plan for a builder. One calm reading column, diagrams as the anchors,
+   tables for the specs, a single illustrative report card near the end. */
+:root{
+  --bg:#f5f7f3; --surface:#ffffff; --surface-2:#f1f4ef; --ink:#17211b; --muted:#59685e;
+  --line:#dde3da; --line-strong:#b9c4b9;
+  --accent:#1f6b3a; --accent-soft:#e1efe5; --on-accent:#ffffff;
+  --gold:#a8681a; --gold-soft:#f8ecd6;
+  --blue:#2c5d80; --blue-soft:#e2edf5;
+  --red:#a8402f; --red-soft:#f8e4df;
+  --font-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --font-ui:"Public Sans","Segoe UI",system-ui,sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1411; --surface:#151d18; --surface-2:#1b2520; --ink:#e4ece6; --muted:#9bab9f;
+    --line:#27342c; --line-strong:#3c4d42;
+    --accent:#5cc486; --accent-soft:#1b2f23; --on-accent:#0c1a11;
+    --gold:#e3ac55; --gold-soft:#33291a;
+    --blue:#82b2d8; --blue-soft:#1b2a37;
+    --red:#e98a77; --red-soft:#3a2420; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1411; --surface:#151d18; --surface-2:#1b2520; --ink:#e4ece6; --muted:#9bab9f;
+  --line:#27342c; --line-strong:#3c4d42;
+  --accent:#5cc486; --accent-soft:#1b2f23; --on-accent:#0c1a11;
+  --gold:#e3ac55; --gold-soft:#33291a;
+  --blue:#82b2d8; --blue-soft:#1b2a37;
+  --red:#e98a77; --red-soft:#3a2420; color-scheme:dark;
+}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:16px;line-height:1.6;
+     padding-inline:16px;padding-block:28px 64px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+h1,h2,h3{font-family:var(--font-display);line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:clamp(2rem,5vw,3rem);font-weight:800;letter-spacing:-.02em}
+h2{font-size:clamp(1.4rem,3vw,1.85rem);font-weight:800;letter-spacing:-.01em}
+h3{font-size:1.05rem;font-weight:600}
+p{margin:0}
+a{color:var(--accent)}
+.eyebrow{font-family:var(--font-mono);font-size:.75rem;letter-spacing:.08em;color:var(--accent);margin-bottom:10px}
+.lead{font-size:1.1rem;color:var(--muted);max-width:68ch;margin-top:14px}
+.toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.toc a{font-size:.82rem;text-decoration:none;color:var(--ink);border:1px solid var(--line-strong);
+       padding:5px 12px;border-radius:999px;background:var(--surface)}
+.toc a:hover{border-color:var(--accent);color:var(--accent)}
+.sec{display:flex;flex-direction:column;gap:20px;min-width:0}
+.sec > p{max-width:72ch;color:var(--ink)}
+.sec .note{color:var(--muted);font-size:.92rem;max-width:72ch}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;min-width:0}
+.card h3{margin-bottom:6px}
+.card p{font-size:.93rem;color:var(--muted)}
+.card .tag{font-family:var(--font-mono);font-size:.7rem;letter-spacing:.06em;color:var(--accent);margin-bottom:6px;display:block}
+
+.fig{margin:0;border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:16px;overflow-x:auto}
+.fig svg{display:block;width:100%;min-width:900px;height:auto}
+.fig figcaption{margin-top:12px;font-size:.9rem;color:var(--muted);max-width:80ch;position:sticky;left:0}
+svg text{font-family:var(--font-ui);font-size:12px;fill:var(--ink)}
+svg .t-title{font-weight:600;font-size:12.5px}
+svg .t-sub{fill:var(--muted);font-size:11px}
+svg .t-lane{fill:var(--muted);font-size:10.5px;letter-spacing:.1em;font-weight:600}
+svg .t-num{fill:var(--on-accent);font-weight:700;font-size:11px;text-anchor:middle}
+svg .t-bar{fill:var(--on-accent);font-weight:600;font-size:11px}
+svg .box{fill:var(--surface-2);stroke:var(--line-strong);stroke-width:1.2}
+svg .box-acc{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5}
+svg .box-gold{fill:var(--gold-soft);stroke:var(--gold);stroke-width:1.5}
+svg .box-blue{fill:var(--blue-soft);stroke:var(--blue);stroke-width:1.5}
+svg .box-ext{fill:none;stroke:var(--muted);stroke-width:1.2;stroke-dasharray:5 4}
+svg .badge{fill:var(--accent)}
+svg .ln{stroke:var(--muted);stroke-width:1.4;fill:none}
+svg .ln-acc{stroke:var(--accent);stroke-width:1.6;fill:none}
+svg .ln-red{stroke:var(--red);stroke-width:1.4;fill:none}
+svg .ln-dash{stroke-dasharray:5 4}
+svg .grid{stroke:var(--line);stroke-width:1}
+svg .mk{fill:var(--muted)} svg .mk-acc{fill:var(--accent)} svg .mk-red{fill:var(--red)}
+svg .bar{fill:var(--accent)} svg .bar-soft{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.4;stroke-dasharray:5 3}
+svg .diamond{fill:var(--gold)}
+svg .t-red{fill:var(--red);font-size:11px}
+svg .t-acc{fill:var(--accent);font-size:11px;font-weight:600}
+
+.table-wrap{border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:.92rem}
+th{font-family:var(--font-mono);font-size:.7rem;letter-spacing:.07em;font-weight:500;text-align:left;color:var(--muted);
+   padding:11px 14px;border-bottom:1px solid var(--line-strong);background:var(--surface-2);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td:first-child{font-weight:600;min-width:120px}
+.pill{display:inline-block;font-size:.72rem;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.pill.req{background:var(--accent-soft);color:var(--accent)}
+.pill.opt{background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+.pill.fb{background:var(--gold-soft);color:var(--gold)}
+
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+.box-list{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 20px;min-width:0}
+.box-list h3{margin-bottom:8px}
+.box-list ul,.box-list ol{margin:0;padding-left:1.15rem;display:flex;flex-direction:column;gap:7px;font-size:.93rem}
+.box-list li::marker{color:var(--accent)}
+.code{font-family:var(--font-mono);font-size:.85em;background:var(--surface-2);border:1px solid var(--line);padding:1px 6px;border-radius:6px;white-space:nowrap}
+.formula{font-family:var(--font-mono);font-size:.9rem;background:var(--surface);border:1px solid var(--line-strong);
+         border-radius:10px;padding:12px 16px;overflow-x:auto;white-space:nowrap}
+
+/* illustrative report */
+.report{background:var(--surface);border:1px solid var(--line-strong);border-radius:16px;overflow:hidden}
+.report-head{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;
+             padding:16px 20px;border-bottom:1px solid var(--line);background:var(--surface-2)}
+.report-head b{font-family:var(--font-display);font-size:1.1rem}
+.chip{display:inline-block;font-weight:700;font-size:.78rem;letter-spacing:.06em;padding:4px 12px;border-radius:999px}
+.chip.watch{background:var(--gold-soft);color:var(--gold);border:1px solid var(--gold)}
+.examplebar{font-family:var(--font-mono);font-size:.72rem;letter-spacing:.05em;padding:8px 20px;background:var(--red-soft);color:var(--red);border-bottom:1px solid var(--line)}
+.report-body{padding:20px;display:flex;flex-direction:column;gap:18px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.kpi{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--bg)}
+.kpi .k{font-size:.72rem;color:var(--muted);letter-spacing:.06em;font-weight:600}
+.kpi .v{font-family:var(--font-display);font-size:1.5rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.2}
+.kpi .s{font-size:.8rem;color:var(--muted)}
+.report h4{margin:0 0 6px;font-size:.78rem;letter-spacing:.07em;color:var(--muted);font-family:var(--font-mono);font-weight:500}
+.report ul{margin:0;padding-left:1.1rem;display:flex;flex-direction:column;gap:5px;font-size:.93rem}
+.report .eid{font-family:var(--font-mono);font-size:.75rem;color:var(--accent)}
+.report-foot{padding:12px 20px;border-top:1px solid var(--line);font-size:.82rem;color:var(--muted);background:var(--surface-2)}
+
+.ask{display:flex;flex-direction:column;gap:12px;counter-reset:q}
+.ask .q{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 18px}
+.ask .q b{display:block;margin-bottom:2px}
+.ask .q span{color:var(--muted);font-size:.92rem}
+.callout{background:var(--accent-soft);border:1px solid var(--accent);border-radius:12px;padding:16px 20px}
+.callout b{font-family:var(--font-display)}
+@media (max-width:560px){ body{padding-block:20px 48px} .wrap{gap:44px} }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">PLAN OF ACTION · WHEAT FIELD REPORTS</div>
+  <h1>Field Advisor Plan</h1>
+  <p class="lead">Growers upload field photos and a short form. The system counts wheat heads, pins every photo to the field, adds weather, soil and satellite context, and a local language model (Ollama) writes the report: how the crop is doing, why, and what to do next. LangGraph runs the workflow.</p>
+  <nav class="toc" aria-label="Sections">
+    <a href="#understood">What I understood</a><a href="#facts">Design facts</a><a href="#workflow">Workflow</a>
+    <a href="#inputs">Inputs</a><a href="#architecture">Architecture</a><a href="#grounding">Report logic</a>
+    <a href="#analysis">Analysis</a><a href="#report">Report</a><a href="#roadmap">Roadmap</a>
+    <a href="#metrics">Metrics</a><a href="#risks">Risks</a><a href="#decisions">Decisions</a>
+  </nav>
+</header>
+
+<section class="sec" id="understood">
+  <h2>What I understood</h2>
+  <p>A grower or agronomist uploads one photo, or many photos that cover a whole field. They also give the location, the soil, and the crop details the system needs. The system detects the wheat heads, finds where the field is, studies everything together and writes a report with a local AI model, so farm data never leaves the machine. The report says what condition the field is in, and if it is poor, what fertilizer or other action is worth taking.</p>
+  <div class="cards">
+    <div class="card"><span class="tag">IN</span><h3>Photos and a form</h3><p>Single photo or a whole-field set, any image format. Location, soil, crop, sowing date, history.</p></div>
+    <div class="card"><span class="tag">DETECT + LOCATE</span><h3>Heads and place</h3><p>The YOLO11s counter we already built, plus GPS, field boundary and photo points on a map.</p></div>
+    <div class="card"><span class="tag">ANALYZE</span><h3>Field condition</h3><p>Head density, uniformity, yield range, weather stress, soil and satellite checks.</p></div>
+    <div class="card"><span class="tag">OUT</span><h3>A report to act on</h3><p>Verdict, reasons, actions for this season and the next, and the questions still open.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="facts">
+  <h2>Five facts that shape the design</h2>
+  <p>These come from agronomy and from what the counter can and cannot do. The rest of the plan is built around them.</p>
+  <div class="cards">
+    <div class="card"><h3>A head count is not a yield</h3>
+      <p>Yield also needs the ground area in the photo, kernels per head and kernel weight. The photo gives only the first term, and only if we know its scale. So every photo needs a frame size, camera height or drone resolution.</p></div>
+    <div class="card"><h3>Heads appear late</h3>
+      <p>They show at heading and flowering, after most nitrogen and seeding decisions are made. The report must separate this-season actions from next-season actions, and say so plainly.</p></div>
+    <div class="card"><h3>Numbers come from code</h3>
+      <p>Doses, thresholds and yield ranges are computed by a rules engine from vetted agronomy sources. The local model explains, ranks and asks questions. A validator rejects any figure that is not in the data.</p></div>
+    <div class="card"><h3>Location is layered</h3>
+      <p>Photo GPS when it exists, and a user-confirmed pin and boundary on a satellite map always. Phone GPS is typically within about 5 m in the open and drifts under canopy. Many apps strip it. The report shows how sure the location is.</p></div>
+    <div class="card"><h3>The counter has known limits</h3>
+      <p>On photos like our training set the typical count error is about 5%. On unfamiliar farms it is about 13% and tends to undercount by about 14%. Reports give ranges, and growers can enter hand counts to calibrate.</p></div>
+  </div>
+  <div class="formula" role="note" aria-label="Yield formula">yield (t/ha) = heads per m² × kernels per head × thousand-kernel weight (g) ÷ 100,000      e.g. 500 × 35 × 40 ÷ 100,000 = 7.0 t/ha</div>
+</section>
+
+<section class="sec" id="workflow">
+  <h2>End-to-end workflow</h2>
+  <figure class="fig">
+    <svg viewBox="0 0 1040 330" role="img" aria-label="Six steps the user takes, each with the system action beneath it. If the check step finds gaps, the app sends the user back to the photo and soil steps.">
+      <defs><marker id="f1-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="mk" d="M0 0L10 5L0 10z"/></marker></defs>
+      <text class="t-lane" x="8" y="96">YOU</text>
+      <text class="t-lane" x="8" y="244">SYSTEM</text>
+
+      <path class="ln ln-dash" d="M631 48V26H311V45" marker-end="url(#f1-ar)"/>
+      <path class="ln ln-dash" d="M471 26V45" marker-end="url(#f1-ar)"/>
+      <text class="t-sub" x="471" y="17" text-anchor="middle">gaps or doubtful inputs: the app asks again and re-runs only what changed</text>
+
+      <!-- user lane -->
+      <g><rect class="box" x="80" y="48" width="142" height="88" rx="10"/><circle class="badge" cx="97" cy="71" r="9"/><text class="t-num" x="97" y="75">1</text>
+         <text class="t-title" x="112" y="75">Create field</text>
+         <text class="t-sub" x="92" y="98">Pin location, draw</text><text class="t-sub" x="92" y="112">boundary, crop,</text><text class="t-sub" x="92" y="126">sowing date</text></g>
+      <g><rect class="box" x="240" y="48" width="142" height="88" rx="10"/><circle class="badge" cx="257" cy="71" r="9"/><text class="t-num" x="257" y="75">2</text>
+         <text class="t-title" x="272" y="75">Upload photos</text>
+         <text class="t-sub" x="252" y="98">One or many, any</text><text class="t-sub" x="252" y="112">format. GPS read</text><text class="t-sub" x="252" y="126">from each file</text></g>
+      <g><rect class="box" x="400" y="48" width="142" height="88" rx="10"/><circle class="badge" cx="417" cy="71" r="9"/><text class="t-num" x="417" y="75">3</text>
+         <text class="t-title" x="432" y="75">Soil &amp; history</text>
+         <text class="t-sub" x="412" y="98">Soil test values or</text><text class="t-sub" x="412" y="112">“no test”, fertilizer</text><text class="t-sub" x="412" y="126">and sprays so far</text></g>
+      <g><rect class="box" x="560" y="48" width="142" height="88" rx="10"/><circle class="badge" cx="577" cy="71" r="9"/><text class="t-num" x="577" y="75">4</text>
+         <text class="t-title" x="592" y="75">Check inputs</text>
+         <text class="t-sub" x="572" y="98">Photo quality and</text><text class="t-sub" x="572" y="112">missing or odd</text><text class="t-sub" x="572" y="126">values are flagged</text></g>
+      <g><rect class="box" x="720" y="48" width="142" height="88" rx="10"/><circle class="badge" cx="737" cy="71" r="9"/><text class="t-num" x="737" y="75">5</text>
+         <text class="t-title" x="752" y="75">Analyze</text>
+         <text class="t-sub" x="732" y="98">Counts, location,</text><text class="t-sub" x="732" y="112">weather, soil,</text><text class="t-sub" x="732" y="126">satellite</text></g>
+      <g><rect class="box" x="880" y="48" width="142" height="88" rx="10"/><circle class="badge" cx="897" cy="71" r="9"/><text class="t-num" x="897" y="75">6</text>
+         <text class="t-title" x="912" y="75">Get the report</text>
+         <text class="t-sub" x="892" y="98">Condition, yield</text><text class="t-sub" x="892" y="112">range, actions,</text><text class="t-sub" x="892" y="126">PDF to share</text></g>
+
+      <!-- user lane arrows -->
+      <line class="ln" x1="223" y1="92" x2="239" y2="92" marker-end="url(#f1-ar)"/>
+      <line class="ln" x1="383" y1="92" x2="399" y2="92" marker-end="url(#f1-ar)"/>
+      <line class="ln" x1="543" y1="92" x2="559" y2="92" marker-end="url(#f1-ar)"/>
+      <line class="ln" x1="703" y1="92" x2="719" y2="92" marker-end="url(#f1-ar)"/>
+      <line class="ln" x1="863" y1="92" x2="879" y2="92" marker-end="url(#f1-ar)"/>
+
+      <!-- column links -->
+      <line class="ln ln-dash" x1="151" y1="136" x2="151" y2="196"/><line class="ln ln-dash" x1="311" y1="136" x2="311" y2="196"/>
+      <line class="ln ln-dash" x1="471" y1="136" x2="471" y2="196"/><line class="ln ln-dash" x1="631" y1="136" x2="631" y2="196"/>
+      <line class="ln ln-dash" x1="791" y1="136" x2="791" y2="196"/><line class="ln ln-dash" x1="951" y1="136" x2="951" y2="196"/>
+
+      <!-- system lane -->
+      <g><rect class="box" x="80" y="196" width="142" height="88" rx="10"/><text class="t-title" x="92" y="219">Locate</text>
+         <text class="t-sub" x="92" y="242">Geocode, field</text><text class="t-sub" x="92" y="256">polygon, area in</text><text class="t-sub" x="92" y="270">PostGIS</text></g>
+      <g><rect class="box-acc" x="240" y="196" width="142" height="88" rx="10"/><text class="t-title" x="252" y="219">Detect</text>
+         <text class="t-sub" x="252" y="242">Quality gate, then</text><text class="t-sub" x="252" y="256">YOLO11s on GPU:</text><text class="t-sub" x="252" y="270">boxes + counts</text></g>
+      <g><rect class="box" x="400" y="196" width="142" height="88" rx="10"/><text class="t-title" x="412" y="219">Validate</text>
+         <text class="t-sub" x="412" y="242">Units and ranges</text><text class="t-sub" x="412" y="256">checked. SoilGrids</text><text class="t-sub" x="412" y="270">estimate if no test</text></g>
+      <g><rect class="box" x="560" y="196" width="142" height="88" rx="10"/><text class="t-title" x="572" y="219">Find gaps</text>
+         <text class="t-sub" x="572" y="242">Rules list what is</text><text class="t-sub" x="572" y="256">missing and ask the</text><text class="t-sub" x="572" y="270">user in plain words</text></g>
+      <g><rect class="box" x="720" y="196" width="142" height="88" rx="10"/><text class="t-title" x="732" y="219">Build evidence</text>
+         <text class="t-sub" x="732" y="242">Rules engine makes</text><text class="t-sub" x="732" y="256">the evidence packet</text><text class="t-sub" x="732" y="270">from all sources</text></g>
+      <g><rect class="box" x="880" y="196" width="142" height="88" rx="10"/><text class="t-title" x="892" y="219">Write + check</text>
+         <text class="t-sub" x="892" y="242">Local LLM drafts,</text><text class="t-sub" x="892" y="256">code validates,</text><text class="t-sub" x="892" y="270">report is rendered</text></g>
+
+      <line class="ln" x1="223" y1="240" x2="239" y2="240" marker-end="url(#f1-ar)"/>
+      <line class="ln" x1="383" y1="240" x2="399" y2="240" marker-end="url(#f1-ar)"/>
+      <line class="ln" x1="543" y1="240" x2="559" y2="240" marker-end="url(#f1-ar)"/>
+      <line class="ln" x1="703" y1="240" x2="719" y2="240" marker-end="url(#f1-ar)"/>
+      <line class="ln" x1="863" y1="240" x2="879" y2="240" marker-end="url(#f1-ar)"/>
+
+      <rect class="box-acc" x="80" y="304" width="14" height="14" rx="3"/><text class="t-sub" x="100" y="315">already built</text>
+      <rect class="box" x="200" y="304" width="14" height="14" rx="3"/><text class="t-sub" x="220" y="315">still to build</text>
+    </svg>
+    <figcaption>The user does six things. Under each one the system does its part. When step 4 finds a gap, the user goes back to add data, so a thin set of inputs never turns into a confident report.</figcaption>
+  </figure>
+</section>
+
+<section class="sec" id="inputs">
+  <h2>What we collect, and why</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>GROUP</th><th>FIELD</th><th>USED FOR</th><th>NEEDED</th></tr></thead>
+      <tbody>
+        <tr><td>Location</td><td>Field pin and boundary, drawn on a satellite map</td><td>Weather, soil, satellite, field area, region rules</td><td><span class="pill req">Required</span></td></tr>
+        <tr><td>Location</td><td>Photo GPS from the file, or tap-to-place on the map</td><td>Sample-point map, coverage check</td><td><span class="pill fb">Auto, with fallback</span></td></tr>
+        <tr><td>Crop</td><td>Crop and variety</td><td>Reference density bands, kernel and weight defaults</td><td><span class="pill req">Required</span></td></tr>
+        <tr><td>Crop</td><td>Sowing date and growth stage</td><td>Stage-aware advice, growing degree days</td><td><span class="pill req">Required</span></td></tr>
+        <tr><td>Crop</td><td>Rainfed or irrigated</td><td>Water-stress advice</td><td><span class="pill req">Required</span></td></tr>
+        <tr><td>Soil</td><td>Soil test: pH, organic matter, N, P, K, texture, test date</td><td>Lime and nutrient advice</td><td><span class="pill opt">Optional, advised</span></td></tr>
+        <tr><td>Soil</td><td>No test available</td><td>Estimate from SoilGrids, labelled low confidence</td><td><span class="pill fb">Fallback</span></td></tr>
+        <tr><td>History</td><td>Previous crop, fertilizer and sprays so far (type, rate, date)</td><td>Nutrient balance, disease risk</td><td><span class="pill opt">Optional</span></td></tr>
+        <tr><td>Photos</td><td>Frame size or camera height</td><td>Turns counts into heads per m²</td><td><span class="pill req">Required for yield</span></td></tr>
+        <tr><td>Photos</td><td>Number of photos and where they were taken</td><td>Field average and spread</td><td><span class="pill req">10 or more advised</span></td></tr>
+        <tr><td>Goal</td><td>Target yield and problems already noticed</td><td>Frames the report</td><td><span class="pill opt">Optional</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="cols">
+    <div class="box-list">
+      <h3>Photo capture protocol (starting point)</h3>
+      <ul>
+        <li>Walk a W or zig-zag across the field and photograph 10 to 20 points, away from the headland.</li>
+        <li>Shoot straight down from a fixed height with a quadrat or marker of known size in frame.</li>
+        <li>Same day, similar light, no shadow of the photographer on the crop.</li>
+        <li>Keep location on and upload the original file. Messaging apps strip GPS.</li>
+        <li>For drones, upload the orthomosaic instead. It follows a separate route in the app.</li>
+      </ul>
+      <p class="note" style="margin-top:10px">The counts and spacing get tuned in the pilot, using how much the photos disagree.</p>
+    </div>
+    <div class="box-list">
+      <h3>How the location is resolved</h3>
+      <ol>
+        <li>Read the GPS and time stored in each photo.</li>
+        <li>The user confirms the field pin and draws the boundary on a satellite map.</li>
+        <li>Check that each photo point falls inside the boundary and that no two photos show the same spot.</li>
+        <li>Geocode the field to a region, which selects the weather source, soil layer, crop calendar and rules.</li>
+        <li>Store the location with consent. Analytics only ever see a coarse position.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="architecture">
+  <h2>System architecture</h2>
+  <figure class="fig">
+    <svg viewBox="0 0 1040 480" role="img" aria-label="Architecture: a web app starts a LangGraph run, which calls six services in order, and those services use storage, outside data sources and a local Ollama model.">
+      <defs>
+        <marker id="f2-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="mk" d="M0 0L10 5L0 10z"/></marker>
+      </defs>
+
+      <!-- legend + cross cutting -->
+      <rect class="box-acc" x="720" y="22" width="14" height="14" rx="3"/><text class="t-sub" x="742" y="33">already built</text>
+      <rect class="box" x="720" y="44" width="14" height="14" rx="3"/><text class="t-sub" x="742" y="55">still to build</text>
+      <rect class="box-ext" x="720" y="66" width="14" height="14" rx="3"/><text class="t-sub" x="742" y="77">outside service</text>
+      <text class="t-lane" x="720" y="116">ACROSS EVERYTHING</text>
+      <text class="t-sub" x="720" y="136">Login and encryption</text>
+      <text class="t-sub" x="720" y="152">Agronomist review queue</text>
+      <text class="t-sub" x="720" y="168">Cost and quality tracking</text>
+
+      <!-- clients -->
+      <rect class="box" x="35" y="14" width="290" height="52" rx="10"/><text class="t-title" x="47" y="36">Web app</text><text class="t-sub" x="47" y="53">Streamlit now, React later</text>
+      <rect class="box-ext" x="377" y="14" width="290" height="52" rx="10"/><text class="t-title" x="389" y="36">Mobile capture (later)</text><text class="t-sub" x="389" y="53">Guided photos, offline queue</text>
+
+      <!-- api + worker -->
+      <rect class="box" x="35" y="104" width="290" height="60" rx="10"/><text class="t-title" x="47" y="127">API (FastAPI)</text><text class="t-sub" x="47" y="146">Uploads, fields, runs, results</text>
+      <rect class="box" x="377" y="104" width="290" height="60" rx="10"/><text class="t-title" x="389" y="127">LangGraph workflow</text><text class="t-sub" x="389" y="146">One run is one field</text>
+
+      <line class="ln" x1="180" y1="67" x2="180" y2="103" marker-end="url(#f2-ar)"/>
+      <text class="t-sub" x="172" y="89" text-anchor="end">photos + form</text>
+      <path class="ln ln-dash" d="M522 67V85H260V103" marker-end="url(#f2-ar)"/>
+      <line class="ln" x1="326" y1="134" x2="376" y2="134" marker-end="url(#f2-ar)"/>
+      <text class="t-sub" x="351" y="127" text-anchor="middle">start</text>
+
+      <!-- bus -->
+      <path class="ln" d="M522 165V190"/>
+      <path class="ln" d="M105 190H935"/>
+      <text class="t-sub" x="640" y="183">LangGraph runs each step</text>
+      <line class="ln" x1="105" y1="190" x2="105" y2="213" marker-end="url(#f2-ar)"/>
+      <line class="ln" x1="271" y1="190" x2="271" y2="213" marker-end="url(#f2-ar)"/>
+      <line class="ln" x1="437" y1="190" x2="437" y2="213" marker-end="url(#f2-ar)"/>
+      <line class="ln" x1="603" y1="190" x2="603" y2="213" marker-end="url(#f2-ar)"/>
+      <line class="ln" x1="769" y1="190" x2="769" y2="213" marker-end="url(#f2-ar)"/>
+      <line class="ln" x1="935" y1="190" x2="935" y2="213" marker-end="url(#f2-ar)"/>
+
+      <!-- services -->
+      <rect class="box" x="35" y="214" width="140" height="86" rx="10"/><text class="t-title" x="47" y="237">Photo intake</text>
+        <text class="t-sub" x="47" y="258">EXIF GPS + time</text><text class="t-sub" x="47" y="272">Quality gate</text><text class="t-sub" x="47" y="286">Scale from frame</text>
+      <rect class="box-acc" x="201" y="214" width="140" height="86" rx="10"/><text class="t-title" x="213" y="237">Detector</text>
+        <text class="t-sub" x="213" y="258">YOLO11s on GPU</text><text class="t-sub" x="213" y="272">Boxes + counts</text><text class="t-sub" x="213" y="286">Built and tested</text>
+      <rect class="box" x="367" y="214" width="140" height="86" rx="10"/><text class="t-title" x="379" y="237">Geo</text>
+        <text class="t-sub" x="379" y="258">Field polygon</text><text class="t-sub" x="379" y="272">Photo points</text><text class="t-sub" x="379" y="286">Region lookup</text>
+      <rect class="box" x="533" y="214" width="140" height="86" rx="10"/><text class="t-title" x="545" y="237">Data connectors</text>
+        <text class="t-sub" x="545" y="258">Weather, soil,</text><text class="t-sub" x="545" y="272">satellite NDVI</text><text class="t-sub" x="545" y="286">Cached per field</text>
+      <rect class="box" x="699" y="214" width="140" height="86" rx="10"/><text class="t-title" x="711" y="237">Agronomy engine</text>
+        <text class="t-sub" x="711" y="258">Rules, reference</text><text class="t-sub" x="711" y="272">bands, evidence</text><text class="t-sub" x="711" y="286">packet</text>
+      <rect class="box" x="865" y="214" width="140" height="86" rx="10"/><text class="t-title" x="877" y="237">Report</text>
+        <text class="t-sub" x="877" y="258">Ollama LLM call</text><text class="t-sub" x="877" y="272">Validator</text><text class="t-sub" x="877" y="286">Report page</text>
+
+      <line class="ln" x1="176" y1="257" x2="200" y2="257" marker-end="url(#f2-ar)"/>
+      <line class="ln" x1="342" y1="257" x2="366" y2="257" marker-end="url(#f2-ar)"/>
+      <line class="ln" x1="508" y1="257" x2="532" y2="257" marker-end="url(#f2-ar)"/>
+      <line class="ln" x1="674" y1="257" x2="698" y2="257" marker-end="url(#f2-ar)"/>
+      <line class="ln" x1="840" y1="257" x2="864" y2="257" marker-end="url(#f2-ar)"/>
+
+      <!-- storage and outside -->
+      <rect class="box" x="35" y="372" width="306" height="60" rx="10"/><text class="t-title" x="47" y="395">Object storage</text><text class="t-sub" x="47" y="414">Photos, annotated images, PDFs</text>
+      <rect class="box" x="367" y="372" width="140" height="70" rx="10"/><text class="t-title" x="379" y="395">PostGIS database</text><text class="t-sub" x="379" y="414">Fields, runs,</text><text class="t-sub" x="379" y="428">evidence packets</text>
+      <rect class="box-ext" x="533" y="372" width="140" height="84" rx="10"/><text class="t-title" x="545" y="395">Outside data</text><text class="t-sub" x="545" y="414">Open-Meteo, NASA</text><text class="t-sub" x="545" y="428">POWER, SoilGrids,</text><text class="t-sub" x="545" y="442">Sentinel-2</text>
+      <rect class="box" x="699" y="372" width="140" height="70" rx="10"/><text class="t-title" x="711" y="395">Knowledge base</text><text class="t-sub" x="711" y="414">Extension guides,</text><text class="t-sub" x="711" y="428">FAO, search index</text>
+      <rect class="box-ext" x="865" y="372" width="140" height="70" rx="10"/><text class="t-title" x="877" y="395">Ollama</text><text class="t-sub" x="877" y="414">Local model on the</text><text class="t-sub" x="877" y="428">GPU, JSON output</text>
+
+      <line class="ln" x1="105" y1="301" x2="105" y2="371" marker-end="url(#f2-ar)"/><text class="t-sub" x="113" y="340">photos</text>
+      <line class="ln" x1="271" y1="301" x2="271" y2="371" marker-end="url(#f2-ar)"/><text class="t-sub" x="279" y="340">annotated</text>
+      <line class="ln" x1="437" y1="301" x2="437" y2="371" marker-end="url(#f2-ar)"/><text class="t-sub" x="445" y="340">points</text>
+      <line class="ln" x1="603" y1="301" x2="603" y2="371" marker-end="url(#f2-ar)"/><text class="t-sub" x="611" y="340">fetch</text>
+      <line class="ln" x1="769" y1="301" x2="769" y2="371" marker-end="url(#f2-ar)"/><text class="t-sub" x="777" y="340">retrieve</text>
+      <line class="ln" x1="935" y1="301" x2="935" y2="371" marker-end="url(#f2-ar)"/><text class="t-sub" x="943" y="334">evidence in,</text><text class="t-sub" x="943" y="348">report out</text>
+    </svg>
+    <figcaption>The detector and the Streamlit upload page already exist, shown in green. Everything else is built around them. A single GPU machine can host the worker and the detector while the database and storage run anywhere. Streamlit stays for the first pilot and gets replaced when real accounts are needed.</figcaption>
+  </figure>
+</section>
+
+<section class="sec" id="grounding">
+  <h2>How the report stays honest</h2>
+  <p>This is the core of the plan. The language model never works from memory for numbers. It receives an evidence packet, and a second piece of code checks its answer before anyone sees it.</p>
+  <figure class="fig">
+    <svg viewBox="0 0 1040 360" role="img" aria-label="Measured facts feed an agronomy engine written in code, which builds an evidence packet. A local Ollama model writes the report from that packet. A validator in code checks it; a failure retries once, low confidence goes to an agronomist, and a pass becomes the report.">
+      <defs>
+        <marker id="f3-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="mk" d="M0 0L10 5L0 10z"/></marker>
+        <marker id="f3-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="mk-red" d="M0 0L10 5L0 10z"/></marker>
+        <marker id="f3-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="mk-acc" d="M0 0L10 5L0 10z"/></marker>
+      </defs>
+      <text class="t-lane" x="15" y="54">MEASURED FACTS</text>
+
+      <rect class="box" x="15" y="66" width="170" height="44" rx="8"/><text class="t-title" x="25" y="85">Photo counts</text><text class="t-sub" x="25" y="100">heads per m², spread</text>
+      <rect class="box" x="15" y="118" width="170" height="44" rx="8"/><text class="t-title" x="25" y="137">Weather</text><text class="t-sub" x="25" y="152">growth, rain, heat days</text>
+      <rect class="box" x="15" y="170" width="170" height="44" rx="8"/><text class="t-title" x="25" y="189">Soil and history</text><text class="t-sub" x="25" y="204">tests, crop, fertilizer</text>
+      <rect class="box" x="15" y="222" width="170" height="44" rx="8"/><text class="t-title" x="25" y="241">Satellite</text><text class="t-sub" x="25" y="256">NDVI zones</text>
+      <line class="ln" x1="186" y1="88" x2="229" y2="88" marker-end="url(#f3-ar)"/>
+      <line class="ln" x1="186" y1="140" x2="229" y2="140" marker-end="url(#f3-ar)"/>
+      <line class="ln" x1="186" y1="192" x2="229" y2="192" marker-end="url(#f3-ar)"/>
+      <line class="ln" x1="186" y1="244" x2="229" y2="244" marker-end="url(#f3-ar)"/>
+
+      <rect class="box" x="230" y="4" width="180" height="38" rx="8"/><text class="t-title" x="240" y="20">Knowledge base</text><text class="t-sub" x="240" y="34">local guides, FAO, extension</text>
+      <line class="ln" x1="320" y1="43" x2="320" y2="65" marker-end="url(#f3-ar)"/><text class="t-sub" x="328" y="58">thresholds</text>
+
+      <rect class="box-blue" x="230" y="66" width="180" height="200" rx="10"/>
+      <text class="t-title" x="242" y="88">Agronomy engine</text><text class="t-sub" x="242" y="103">code, no AI</text>
+      <text class="t-sub" x="242" y="130">· checks units and ranges</text><text class="t-sub" x="242" y="150">· heads × kernels × weight</text>
+      <text class="t-sub" x="242" y="170">· stage-aware action list</text><text class="t-sub" x="242" y="190">· nutrient balance, ranges</text>
+      <text class="t-sub" x="242" y="210">· confidence from data gaps</text>
+
+      <line class="ln" x1="411" y1="166" x2="454" y2="166" marker-end="url(#f3-ar)"/><text class="t-sub" x="432" y="158" text-anchor="middle">builds</text>
+
+      <rect class="box" x="455" y="66" width="135" height="200" rx="10"/>
+      <text class="t-title" x="467" y="88">Evidence packet</text><text class="t-sub" x="467" y="103">JSON, example values</text>
+      <text class="t-sub" x="467" y="130">E1  heads/m²   412</text><text class="t-sub" x="467" y="150">E2  rain gap   38 mm</text>
+      <text class="t-sub" x="467" y="170">E3  soil pH    5.6</text><text class="t-sub" x="467" y="190">A1  candidate action</text>
+      <text class="t-sub" x="467" y="215">Every item has an id</text><text class="t-sub" x="467" y="231">and a source.</text>
+
+      <line class="ln" x1="591" y1="166" x2="659" y2="166" marker-end="url(#f3-ar)"/>
+      <text class="t-sub" x="625" y="146" text-anchor="middle">structured</text><text class="t-sub" x="625" y="158" text-anchor="middle">JSON</text>
+
+      <rect class="box-gold" x="660" y="66" width="140" height="200" rx="10"/>
+      <text class="t-title" x="672" y="88">Local LLM</text><text class="t-sub" x="672" y="103">Ollama, the only AI step</text>
+      <text class="t-sub" x="672" y="130">· explains the verdict</text><text class="t-sub" x="672" y="150">· ranks the actions</text>
+      <text class="t-sub" x="672" y="170">· cites evidence ids</text><text class="t-sub" x="672" y="190">· asks for missing data</text>
+      <text class="t-sub" x="672" y="210">· plain, short language</text>
+
+      <line class="ln" x1="801" y1="166" x2="869" y2="166" marker-end="url(#f3-ar)"/><text class="t-sub" x="835" y="158" text-anchor="middle">draft</text>
+
+      <rect class="box-blue" x="870" y="66" width="150" height="200" rx="10"/>
+      <text class="t-title" x="882" y="88">Validator</text><text class="t-sub" x="882" y="103">code, no AI</text>
+      <text class="t-sub" x="882" y="130">· JSON schema valid</text><text class="t-sub" x="882" y="150">· every number appears</text><text class="t-sub" x="882" y="164">  in the evidence packet</text>
+      <text class="t-sub" x="882" y="184">· doses inside limits</text><text class="t-sub" x="882" y="204">· citations resolve</text><text class="t-sub" x="882" y="224">· no product names</text><text class="t-sub" x="882" y="238">  or spray doses</text>
+
+      <!-- retry -->
+      <path class="ln-red" d="M945 66V34H730V65" marker-end="url(#f3-red)"/>
+      <text class="t-red" x="838" y="26" text-anchor="middle">fail: retry once with the error list</text>
+
+      <!-- pass -->
+      <line class="ln-acc" x1="975" y1="267" x2="975" y2="299" marker-end="url(#f3-acc)"/><text class="t-acc" x="983" y="288">pass</text>
+      <rect class="box-acc" x="870" y="300" width="150" height="46" rx="8"/><text class="t-title" x="882" y="320">Report</text><text class="t-sub" x="882" y="336">web page + PDF</text>
+
+      <!-- escalate -->
+      <path class="ln" d="M915 267V283H730V299" marker-end="url(#f3-ar)"/>
+      <text class="t-sub" x="822" y="277" text-anchor="middle">low confidence or high impact</text>
+      <rect class="box" x="660" y="300" width="140" height="46" rx="8"/><text class="t-title" x="672" y="320">Agronomist</text><text class="t-sub" x="672" y="336">reviews and approves</text>
+      <line class="ln" x1="801" y1="323" x2="869" y2="323" marker-end="url(#f3-ar)"/><text class="t-sub" x="835" y="315" text-anchor="middle">approve</text>
+    </svg>
+    <figcaption>Blue boxes are plain code, and gold is the only step that uses AI. Every number in the report traces to an evidence id. A report that fails the checks is retried once, and doubtful or high-impact cases go to a person.</figcaption>
+  </figure>
+  <div class="cols">
+    <div class="box-list">
+      <h3>How the local model is used</h3>
+      <ul>
+        <li>One report call per field, with a low temperature and a context window sized to the evidence packet.</li>
+        <li>Built with <span class="code">qwen3.5:9b</span> (6.6 GB download). With a 6144-token window it sits fully on the 8 GB GPU next to the counter. In testing, 9 of 9 reports across three field situations passed the validator on the first try, at about 10 seconds each. It was not compared head to head with other models.</li>
+        <li>Ollama’s structured output forces the reply into a JSON schema, so the page layout and the validator stay deterministic.</li>
+        <li>No per-report fee and no farm data leaves the machine. The trade-off is a smaller model, so the validator and the retry loop do more of the work.</li>
+        <li>If the model fails the checks twice, the report falls back to a rule-based template that uses the same evidence, so a user always gets a safe answer.</li>
+        <li>LangGraph keeps the run state, the retry loop and the escalation branch explicit, so each step can be tested on its own.</li>
+      </ul>
+    </div>
+    <div class="box-list">
+      <h3>Photos and the language model</h3>
+      <ul>
+        <li>A vision-capable local model could describe visible problems such as lodging, weeds or leaf colour. It is left out of the first version to save GPU memory.</li>
+        <li>Any such description would be tagged “unverified observation” and would never feed a number.</li>
+        <li>Disease and nutrient-deficiency diagnosis from a photo is unreliable in general, so the report asks to scout the area instead of naming a cause.</li>
+        <li>Dedicated models for lodging, weeds and disease are a later phase, trained on our own labelled photos.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="analysis">
+  <h2>What the analysis computes</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>CHECK</th><th>HOW</th><th>OUTPUT</th></tr></thead>
+      <tbody>
+        <tr><td>Stand density</td><td>Mean heads per m² over all photo points, with spread and a 95% interval</td><td>Low, in band or high against a regional reference band</td></tr>
+        <tr><td>Uniformity</td><td>Variation between points, plus satellite NDVI zones</td><td>Zone map and an “uneven” flag</td></tr>
+        <tr><td>Yield forecast</td><td>Heads × kernels per head × kernel weight, with low, central and high assumptions</td><td>A t/ha range and the assumptions behind it</td></tr>
+        <tr><td>Weather stress</td><td>Growing degree days since sowing, rainfall gap, heat days around flowering</td><td>Stress flags with dates</td></tr>
+        <tr><td>Disease risk window</td><td>Wet and humid spells around flowering</td><td>A scouting prompt, never a product</td></tr>
+        <tr><td>Soil</td><td>pH, organic matter, N, P, K against local sufficiency ranges</td><td>Lime and nutrient flags with ranges</td></tr>
+        <tr><td>Condition verdict</td><td>Weighted drivers, plus a confidence level from how complete the data is</td><td>Good, Watch or Poor, and the top three reasons</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">Reference bands, kernel counts and sufficiency ranges are placeholders until the agronomy team sets them per region and variety. Every recommendation carries what to do, why (evidence ids), when (the stage window), the expected effect, how sure we are, and who must confirm it.</p>
+  <div class="cols">
+    <div class="box-list">
+      <h3>This season (heads are visible)</h3>
+      <ul>
+        <li>Yield range and harvest planning.</li>
+        <li>Irrigation during grain fill, where water is available.</li>
+        <li>Disease scouting around flowering. A licensed advisor picks any product and dose.</li>
+        <li>Late-season feeding only where the regional rules allow it, always marked for agronomist confirmation.</li>
+      </ul>
+    </div>
+    <div class="box-list">
+      <h3>Next season (what the photos teach)</h3>
+      <ul>
+        <li>Seed rate and sowing date for weak zones.</li>
+        <li>Nitrogen amount and split timing, set from a spring soil test.</li>
+        <li>Lime or phosphorus where the soil test is low.</li>
+        <li>Drainage or compaction work in the zones that stayed thin.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="report">
+  <h2>What the report looks like</h2>
+  <p>One page for a decision, then the detail underneath: verdict and confidence, key numbers, a map with the photo points and zones, the reasons, actions split by season, assumptions, and the questions still open. It exports as a PDF.</p>
+  <div class="report" role="group" aria-label="Illustrative report">
+    <div class="examplebar">EXAMPLE WITH MADE-UP NUMBERS · NOT REAL ADVICE</div>
+    <div class="report-head">
+      <div><b>North field · 12 ha · wheat, grain fill</b></div>
+      <div><span class="chip watch">WATCH</span> <span style="font-size:.85rem;color:var(--muted)">Confidence: medium (12 photos, soil test from March)</span></div>
+    </div>
+    <div class="report-body">
+      <div class="kpis">
+        <div class="kpi"><div class="k">HEADS PER M²</div><div class="v">412</div><div class="s">95% interval 380 to 444</div></div>
+        <div class="kpi"><div class="k">YIELD FORECAST</div><div class="v">4.3 to 6.3 t/ha</div><div class="s">Central 5.3. Assumes 30 to 34 kernels per head, 38 to 42 g per 1000 kernels</div></div>
+        <div class="kpi"><div class="k">UNIFORMITY</div><div class="v">Uneven</div><div class="s">Points vary by 21%. West zone is 28% below east</div></div>
+      </div>
+      <div><h4>WHY</h4>
+        <ul>
+          <li>Head density is below the regional reference band of 450 to 550 per m² (placeholder band). <span class="eid">E1 R2</span></li>
+          <li>Rainfall is 38 mm below normal over the last four weeks of grain fill. <span class="eid">E2</span></li>
+          <li>Soil pH 5.6 from a March test is on the acid side for wheat. <span class="eid">E3</span></li>
+        </ul></div>
+      <div class="cols">
+        <div><h4>THIS SEASON</h4>
+          <ul>
+            <li>Irrigate during grain fill if water is available, since rain is short. <span class="eid">E2</span></li>
+            <li>Walk the west zone to look for disease and waterlogging before deciding on any spray. A licensed advisor chooses products and doses.</li>
+            <li>Plan harvest around the lower half of the range.</li>
+          </ul></div>
+        <div><h4>NEXT SEASON</h4>
+          <ul>
+            <li>Test and correct acid soil in the west zone, then retest pH.</li>
+            <li>Review seed rate and sowing date for the west zone.</li>
+            <li>Split nitrogen across the season using a soil test each spring.</li>
+          </ul></div>
+      </div>
+      <div><h4>STILL OPEN</h4>
+        <ul><li>How much nitrogen was applied this spring?</li><li>Was the west zone waterlogged in winter?</li></ul></div>
+    </div>
+    <div class="report-foot">Built from 12 photos and 6 data sources. This is decision support. Confirm actions with a local agronomist.</div>
+  </div>
+</section>
+
+<section class="sec" id="roadmap">
+  <h2>Plan of action</h2>
+  <figure class="fig">
+    <svg viewBox="0 0 1040 350" role="img" aria-label="Timeline over twelve weeks: phase 0 weeks 0 to 1.5, phase 1 weeks 1 to 4, phase 2 weeks 3 to 6, phase 3 weeks 4 to 8, phase 4 weeks 6 to 9, phase 5 weeks 8 to 12, phase 6 from week 10. Milestones: demo at week 4, first AI report at week 9, pilot read-out at week 12.">
+      <!-- grid + axis: x = 270 + week * 61.67 -->
+      <line class="grid" x1="270" y1="44" x2="270" y2="296"/><line class="grid" x1="393.3" y1="44" x2="393.3" y2="296"/>
+      <line class="grid" x1="516.7" y1="44" x2="516.7" y2="296"/><line class="grid" x1="640" y1="44" x2="640" y2="296"/>
+      <line class="grid" x1="763.3" y1="44" x2="763.3" y2="296"/><line class="grid" x1="886.7" y1="44" x2="886.7" y2="296"/>
+      <line class="grid" x1="1010" y1="44" x2="1010" y2="296"/>
+      <text class="t-sub" x="270" y="34" text-anchor="middle">wk 0</text><text class="t-sub" x="393.3" y="34" text-anchor="middle">wk 2</text>
+      <text class="t-sub" x="516.7" y="34" text-anchor="middle">wk 4</text><text class="t-sub" x="640" y="34" text-anchor="middle">wk 6</text>
+      <text class="t-sub" x="763.3" y="34" text-anchor="middle">wk 8</text><text class="t-sub" x="886.7" y="34" text-anchor="middle">wk 10</text>
+      <text class="t-sub" x="1010" y="34" text-anchor="middle">wk 12</text>
+
+      <text class="t-title" x="10" y="74">0  Decide + ground truth</text><rect class="bar" x="270" y="60" width="92.5" height="20" rx="5"/><text class="t-bar" x="278" y="74">1.5 wk</text>
+      <text class="t-title" x="10" y="108">1  Counting with context</text><rect class="bar" x="331.7" y="94" width="185" height="20" rx="5"/><text class="t-bar" x="340" y="108">3 wk</text>
+      <text class="t-title" x="10" y="142">2  Data enrichment</text><rect class="bar" x="455" y="128" width="185" height="20" rx="5"/><text class="t-bar" x="463" y="142">3 wk</text>
+      <text class="t-title" x="10" y="176">3  Agronomy engine</text><rect class="bar" x="516.7" y="162" width="246.7" height="20" rx="5"/><text class="t-bar" x="525" y="176">4 wk</text>
+      <text class="t-title" x="10" y="210">4  AI report + checks</text><rect class="bar" x="640" y="196" width="185" height="20" rx="5"/><text class="t-bar" x="648" y="210">3 wk</text>
+      <text class="t-title" x="10" y="244">5  Pilot with real farms</text><rect class="bar" x="763.3" y="230" width="246.7" height="20" rx="5"/><text class="t-bar" x="771" y="244">4 wk</text>
+      <text class="t-title" x="10" y="278">6  Production hardening</text><rect class="bar-soft" x="886.7" y="264" width="123.3" height="20" rx="5"/><text class="t-acc" x="895" y="278">2 wk and ongoing</text>
+
+      <text class="t-lane" x="10" y="318">MILESTONES</text>
+      <path class="diamond" d="M516.7 310l8 8-8 8-8-8z"/><text class="t-sub" x="516.7" y="340" text-anchor="middle">demo</text>
+      <path class="diamond" d="M825 310l8 8-8 8-8-8z"/><text class="t-sub" x="825" y="340" text-anchor="middle">first AI report</text>
+      <path class="diamond" d="M1010 310l8 8-8 8-8-8z"/><text class="t-sub" x="1030" y="340" text-anchor="end">pilot read-out</text>
+    </svg>
+    <figcaption>About 12 weeks to a pilot, assuming one or two engineers and an agronomist for a few hours each week. These are estimates. Phases overlap so data work starts before the counting page is finished.</figcaption>
+  </figure>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>PHASE</th><th>WHAT GETS BUILT</th><th>DONE WHEN</th></tr></thead>
+      <tbody>
+        <tr><td>0 Decide</td><td>Target users, region and growth-stage window. 20 to 50 fields with hand counts and, if possible, final yields. Data sources and licences agreed.</td><td>Spec signed off and the validation set is ready</td></tr>
+        <tr><td>1 Counting with context</td><td>Multi-photo upload, field form, map pin and boundary, photo location, frame scale, field statistics, yield range, and a rule-based report with no AI.</td><td>Agronomist sees a demo and count error on the validation set is reported</td></tr>
+        <tr><td>2 Data enrichment</td><td>Weather, soil and satellite connectors, growing degree days, stress flags, NDVI zones.</td><td>All sources return data for 95% of test fields</td></tr>
+        <tr><td>3 Agronomy engine</td><td>Rules, reference bands, knowledge base, evidence packet with ids.</td><td>Agronomist signs off the rules on 20 cases</td></tr>
+        <tr><td>4 AI report</td><td>Ollama report call inside the LangGraph workflow, validator, fallback template, evaluation set.</td><td>Zero invented numbers on the test set and an average agronomist score of 4 or more out of 5</td></tr>
+        <tr><td>5 Pilot</td><td>3 to 5 real farms or advisors. Forecasts compared with real yields.</td><td>Read-out of errors and fixes</td></tr>
+        <tr><td>6 Production</td><td>Accounts, job queue, monitoring, backups, privacy controls, billing. Later: lodging, weed and disease models, drone orthomosaics, a mobile app.</td><td>Ongoing</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout"><b>Status:</b> a working slice of phases 1 to 4 is built and tested on this machine. It has multi-photo upload with frame size, the field form, map pin and boundary, photo GPS, weather, soil input, the rules engine, the LangGraph workflow, and the Ollama report with a validator and a safe fallback. Not built yet: satellite vegetation zones, PDF export, accounts, and pilot data to calibrate the numbers. Details are in docs/FIELD_REPORT.md in the repository.</div>
+</section>
+
+<section class="sec" id="metrics">
+  <h2>How we know it works</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>MEASURE</th><th>TARGET TO AIM FOR</th><th>CHECKED AGAINST</th></tr></thead>
+      <tbody>
+        <tr><td>Photo count error</td><td>Median 10% or less on pilot fields</td><td>Hand counts</td></tr>
+        <tr><td>Location</td><td>95% of photos placed inside the right field</td><td>User-confirmed map</td></tr>
+        <tr><td>Yield forecast</td><td>Within ±20% of actual at heading, tightened later</td><td>Harvest yield</td></tr>
+        <tr><td>Report quality</td><td>Average 4 or more out of 5</td><td>Blind agronomist rubric</td></tr>
+        <tr><td>Invented numbers</td><td>Zero</td><td>Validator on every report</td></tr>
+        <tr><td>Unsafe advice</td><td>Zero out-of-range doses or product doses</td><td>Rule tests and review</td></tr>
+        <tr><td>Speed</td><td>Under 2 minutes for 20 photos</td><td>Timing logs</td></tr>
+        <tr><td>Cost</td><td>No per-report fee. Under 60 seconds of GPU time per report</td><td>Timing logs</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">These targets are starting points. They get confirmed or changed once real pilot data exists.</p>
+</section>
+
+<section class="sec" id="risks">
+  <h2>Risks and guardrails</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>RISK</th><th>WHAT GOES WRONG</th><th>GUARDRAIL</th></tr></thead>
+      <tbody>
+        <tr><td>Confident wrong advice</td><td>The report sounds sure when the data is thin</td><td>Confidence from data completeness. Low confidence turns advice into “collect more data”. Review queue for doubtful cases.</td></tr>
+        <tr><td>Invented numbers</td><td>The model adds a figure that is not in the data</td><td>Validator checks every number against the evidence packet, one retry, then escalate.</td></tr>
+        <tr><td>Spray or dose errors</td><td>Product rules and labels differ by country</td><td>No products and no spray doses are ever generated. The report points to a licensed advisor.</td></tr>
+        <tr><td>Unknown photo scale</td><td>Counts cannot become heads per m²</td><td>Require frame size or camera height. Otherwise show counts only and no yield.</td></tr>
+        <tr><td>Wrong or missing location</td><td>GPS stripped or drifting</td><td>User-confirmed pin and boundary. Show location confidence. Flag photos outside the boundary.</td></tr>
+        <tr><td>Counter on new farms</td><td>Undercounts by about 14% on unfamiliar farms</td><td>Give ranges, add hand-count calibration, keep labelling new farms, track error by region.</td></tr>
+        <tr><td>Wrong growth stage</td><td>Advice that is too late or too early</td><td>Stage from sowing date and weather, cross-checked with the user. The engine refuses actions that do not fit the stage.</td></tr>
+        <tr><td>Privacy</td><td>Farm location and yields are commercially sensitive</td><td>Consent, encryption, delete on request, coarse location in analytics.</td></tr>
+        <tr><td>Data licences</td><td>Weather, satellite and soil terms differ for commercial use</td><td>Licence review in phase 0 and a swap plan for each source.</td></tr>
+        <tr><td>Small local model</td><td>Weaker wording and more mistakes than a large cloud model</td><td>Strict JSON schema, validator, one retry, rule-based fallback template, and a fixed evaluation set re-run on every model change.</td></tr>
+        <tr><td>Poor connectivity</td><td>Large photo uploads fail in the field</td><td>Resumable uploads, resizing that keeps GPS data, an offline queue in the mobile app.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">Weather, soil and satellite candidates: Open-Meteo or NASA POWER for weather, SoilGrids for soil, Sentinel-2 through Copernicus or Planetary Computer for satellite. Check each source’s terms before commercial use.</p>
+</section>
+
+<section class="sec" id="decisions">
+  <h2>Decisions I need from you</h2>
+  <div class="ask">
+    <div class="q"><b>Who uses it first?</b><span>Farmers, agronomists or an agri company. I would start with agronomists and advisors, since they can confirm the advice.</span></div>
+    <div class="q"><b>Which countries and languages first?</b><span>This decides the weather and soil sources, the rules, the fertilizer units and the report language.</span></div>
+    <div class="q"><b>Wheat only, or more crops?</b><span>I would assume wheat only until the first pilot works.</span></div>
+    <div class="q"><b>How will photos be taken?</b><span>Phone close-ups, handheld from above, or drone. Each one changes the scale and counting method.</span></div>
+    <div class="q"><b>Can we get real yields?</b><span>Even 20 to 50 fields with harvest weights from partners would let us calibrate the forecast.</span></div>
+    <div class="q"><b>Where can farm data be stored?</b><span>The local model keeps reports on the machine. Any rules that decide where the database and uploaded photos may live still apply.</span></div>
+    <div class="q"><b>Web only, or a mobile app too?</b><span>Guided capture in the field helps photo quality a lot, but it adds a whole phase.</span></div>
+  </div>
+</section>
+
+</div>
+
+</body>
+</html>

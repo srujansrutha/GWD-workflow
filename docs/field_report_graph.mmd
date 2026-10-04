@@ -1,0 +1,40 @@
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	intake(intake)
+	detect_photos(detect_photos)
+	locate(locate)
+	weather(weather)
+	soil(soil)
+	find_gaps(find_gaps)
+	analyze(analyze)
+	write_report(write_report)
+	validate_report(validate_report)
+	fallback_report(fallback_report)
+	finalize(finalize)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> intake;
+	analyze --> write_report;
+	detect_photos -.-> __end__;
+	detect_photos -.-> locate;
+	fallback_report --> finalize;
+	find_gaps --> analyze;
+	intake -.-> __end__;
+	intake -.-> detect_photos;
+	locate -.-> __end__;
+	locate -.-> soil;
+	locate -.-> weather;
+	soil --> find_gaps;
+	validate_report -.-> fallback_report;
+	validate_report -.-> finalize;
+	validate_report -.-> write_report;
+	weather --> find_gaps;
+	write_report --> validate_report;
+	finalize --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc

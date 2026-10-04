@@ -23,3 +23,5 @@ runs/
 .env
 .DS_Store
 Thumbs.db
+frontend/advisor/cache/
+.pytest_cache/

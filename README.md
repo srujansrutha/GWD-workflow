@@ -45,9 +45,16 @@ Gains on unseen farms were small (+0.007 and +0.018) and the generalization gap 
 
 More diverse training farms doubled the `test2` score with the same model, while a bigger model added nothing reliable on top. Details and the leakage checks are in [docs/TRAINING.md](docs/TRAINING.md) section 8.3.
 
-## Wheat Head Counter App
+## Wheat Advisor App
 
-A Streamlit app in [frontend/](frontend/) that detects and counts wheat heads in uploaded photos (any common image format, one or many at once). The model is loaded onto the GPU the first time the page is opened (the launcher opens it for you) and then stays there until you stop the app, even with no browser open.
+A Streamlit app in [frontend/](frontend/) with two pages that share one GPU-loaded detector:
+
+- **Head counter**: detects and counts wheat heads in uploaded photos (any common image format, one or many at once).
+- **Field report**: photos plus field details (location, soil, crop, history) in, a condition report out: verdict, reasons, yield range, and actions for this season and the next. A LangGraph workflow runs the steps and a local Ollama model (`qwen3.5:9b`) writes the wording, with a validator that rejects invented numbers, products and doses. Details: [docs/FIELD_REPORT.md](docs/FIELD_REPORT.md).
+
+Setup for the field report: `ollama pull qwen3.5:9b` (needs a recent Ollama). Run the tests with `cd frontend; ..\.venv\Scripts\python -m pytest tests -q`.
+
+The model is loaded onto the GPU the first time the page is opened (the launcher opens it for you) and then stays there until you stop the app, even with no browser open.
 
 ```powershell
 frontend\run_app.bat          # or: cd frontend; ..\.venv\Scripts\python -m streamlit run app.py
@@ -63,6 +70,7 @@ Then open http://localhost:8501. The app shows annotated images, a count per ima
 ## Layout
 
 - `docs/TRAINING.md`: detailed training guide, experiment history, and interview Q&A.
+- `docs/FIELD_REPORT.md`: how the field report works: workflow, validation, model choice and limits.
 - `docs/METRICS.md`: every detection and counting metric explained, with this project's results in those terms.
 - `notebooks/train.ipynb`: data preparation, training, evaluation, and qualitative inspection.
 - `frontend/`: the Streamlit counting app (`app.py`, `wheat_detector.py`, `run_app.bat`).
