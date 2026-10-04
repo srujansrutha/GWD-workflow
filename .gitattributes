@@ -1,0 +1,11 @@
+# Keep line endings consistent between Windows and Linux checkouts.
+* text=auto
+*.bat text eol=crlf
+*.sh text eol=lf
+*.ipynb text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.gif binary
+*.pt binary

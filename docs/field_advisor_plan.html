@@ -156,7 +156,7 @@ td:first-child{font-weight:600;min-width:120px}
 
 <section class="sec" id="understood">
   <h2>What I understood</h2>
-  <p>A grower or agronomist uploads one photo, or many photos that cover a whole field. They also give the location, the soil, and the crop details the system needs. The system detects the wheat heads, finds where the field is, studies everything together and writes a report with a local AI model, so farm data never leaves the machine. The report says what condition the field is in, and if it is poor, what fertilizer or other action is worth taking.</p>
+  <p>A grower or agronomist uploads one photo, or many photos that cover a whole field. They also give the location, the soil, and the crop details the system needs. The system detects the wheat heads, finds where the field is, studies everything together and writes a report with a local AI model, so photos and reports stay on the machine. The report says what condition the field is in, and if it is poor, what fertilizer or other action is worth taking.</p>
   <div class="cards">
     <div class="card"><span class="tag">IN</span><h3>Photos and a form</h3><p>Single photo or a whole-field set, any image format. Location, soil, crop, sowing date, history.</p></div>
     <div class="card"><span class="tag">DETECT + LOCATE</span><h3>Heads and place</h3><p>The YOLO11s counter we already built, plus GPS, field boundary and photo points on a map.</p></div>
@@ -456,7 +456,7 @@ td:first-child{font-weight:600;min-width:120px}
         <li>One report call per field, with a low temperature and a context window sized to the evidence packet.</li>
         <li>Built with <span class="code">qwen3.5:9b</span> (6.6 GB download). With a 6144-token window it sits fully on the 8 GB GPU next to the counter. In testing, 9 of 9 reports across three field situations passed the validator on the first try, at about 10 seconds each. It was not compared head to head with other models.</li>
         <li>Ollama’s structured output forces the reply into a JSON schema, so the page layout and the validator stay deterministic.</li>
-        <li>No per-report fee and no farm data leaves the machine. The trade-off is a smaller model, so the validator and the retry loop do more of the work.</li>
+        <li>No per-report fee, and the photos and the report stay on the machine (only the field's approximate position goes to free weather, place-name and soil services). The trade-off is a smaller model, so the validator and the retry loop do more of the work.</li>
         <li>If the model fails the checks twice, the report falls back to a rule-based template that uses the same evidence, so a user always gets a safe answer.</li>
         <li>LangGraph keeps the run state, the retry loop and the escalation branch explicit, so each step can be tested on its own.</li>
       </ul>

@@ -1,106 +1,220 @@
-# Global Wheat Detection Workflow
+<div align="center">
 
-Reproducible YOLO11m workflow for wheat-head detection using the Kaggle Global Wheat Detection dataset.
+# 🌾 Wheat Advisor
 
-The project measures more than in-domain validation accuracy. It uses three splits:
+**Count wheat heads with YOLO11 on a GPU, then turn field photos, weather and soil into a plain-language condition report that a local LLM writes and plain code checks.**
 
-| Split | Contents | Used for |
+[![CI](https://github.com/srujansrutha/GWD-workflow/actions/workflows/ci.yml/badge.svg)](https://github.com/srujansrutha/GWD-workflow/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.12%2B-3776AB?logo=python&logoColor=white)
+![YOLO11](https://img.shields.io/badge/detector-YOLO11-00A67E)
+![LangGraph](https://img.shields.io/badge/workflow-LangGraph-1C3C3C)
+![Ollama](https://img.shields.io/badge/LLM-Ollama%20%C2%B7%20qwen3.5%3A9b-000000)
+![Streamlit](https://img.shields.io/badge/app-Streamlit-FF4B4B?logo=streamlit&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+<img src="docs/images/demo.gif" alt="Walkthrough of the Wheat Advisor app: counting heads, filling in a field, and reading the report" width="860">
+
+</div>
+
+---
+
+## What this is
+
+A farmer or agronomist uploads photos of a wheat field and describes it (where, which crop, soil, history). The app counts the wheat heads, places every photo on a map, adds the weather since sowing, a short forecast and soil data, and writes a report: **how the field is doing, why, and what to do next.**
+
+It is three pieces that share one codebase:
+
+| Piece | What it does | Where |
 | --- | --- | --- |
-| `train` | 90% of the remaining five farms | Learning |
-| `val` | Random 10% of those five farms | Early stopping and comparing every experiment |
-| `test` | `usask_1` and `ethz_1`, held out entirely | Scored for the baseline and the final model only |
+| **Detector** | A YOLO11 model trained on the Global Wheat Head Dataset, with leakage-safe, farm-level evaluation | [`notebooks/`](notebooks), [docs/TRAINING.md](docs/TRAINING.md) |
+| **Head counter** | Streamlit page: upload one or many photos in any format, see detections and counts. The model is loaded onto the GPU once and stays there | [`frontend/counter_page.py`](frontend/counter_page.py) |
+| **Field report** | Streamlit page backed by a **LangGraph** workflow and a **local Ollama model**. Photos in, a checked condition report and a chat out | [`frontend/report_page.py`](frontend/report_page.py), [docs/FIELD_REPORT.md](docs/FIELD_REPORT.md) |
 
-Experiments are chosen on `val` alone, so `test` remains an honest estimate of performance on unseen farms.
+## Highlights
 
-## YOLO11s Baseline
+- **Honest evaluation.** Two whole farms are held out of training, so the test score measures *unseen farms*, not a lucky random split. A second, harder test set (the official GWHD 2021 test farms) showed where the model really breaks, and more diverse training data, not a bigger model, fixed it.
+- **The LLM explains; code decides.** Every number, verdict and action is computed by a rules engine into an *evidence packet*. The model only words it, and a **validator rejects** invented numbers, product names, spray doses, links, raw ids and unhedged predictions. A reply that fails gets one retry, then a rule-based fallback, so a user always gets a safe report.
+- **Privacy by design.** Photos, the detector and the language model stay on the machine. Only a position rounded to about 1 km is sent to free weather, place-name and soil services (documented in [a table](docs/FIELD_REPORT.md#9-data-sources-and-what-leaves-this-machine)).
+- **Uncertainty is part of the product.** Yield comes as a range, the weather forecast only drives advice for the next 5 days and never changes the verdict or the yield, and missing data lowers confidence instead of being guessed.
+- **Engineered, not just prototyped.** LangGraph with parallel steps and early exits, GPU out-of-memory fallbacks, prompt-injection and HTML-escaping hardening, a time-zone-correct forecast with caching, and **116 automated tests** that need no GPU, network or language model.
 
-| Evaluation split | mAP50 | mAP50-95 |
-| --- | ---: | ---: |
-| In-domain validation | 0.9448 | 0.5248 |
-| Test (unseen farms) | 0.8900 | 0.3720 |
-| Generalization gap | 0.0548 | 0.1528 |
+## Tour of the app
 
-## YOLO11m Combined Run
+### Head counter
 
-YOLO11m at `imgsz=1280`, batch 2, 100 epochs, source-balanced sampling and extra blur/noise/shadow augmentation. All rows below are scored with the same protocol (no test-time augmentation).
+Drop in one photo or a whole folder (JPG, PNG, TIFF, WebP, BMP, GIF, HEIC). Every head is outlined and counted, with a confidence slider that filters instantly without re-running the model, and ZIP/CSV downloads.
 
-| Evaluation split | YOLO11s baseline mAP50-95 | YOLO11m combined mAP50-95 |
-| --- | ---: | ---: |
-| Validation (seen farms) | 0.5248 | 0.5340 |
-| Test (unseen: `usask_1`, `ethz_1`) | 0.3720 | 0.3791 |
-| Test2 (unseen: official GWHD 2021 test farms) | 0.1487 | 0.1662 |
+![Head counter page showing three photos with 187 detected wheat heads](docs/images/01-head-counter.jpg)
 
-Gains on unseen farms were small (+0.007 and +0.018) and the generalization gap did not shrink. Test-time augmentation helped the baseline on `val` but lowered the combined model's `test` score, so it is not enabled by default. The full analysis, every setting, and interview notes are in [docs/TRAINING.md](docs/TRAINING.md).
+### Field report
 
-## More Training Farms (Global Wheat Head Dataset 2021)
+Describe the field, upload the photos, pin the field and draw its boundary on a satellite map, and add soil results if you have them. Photo GPS is read from the files; the boundary gives the area and keeps photo points honest.
 
-`notebooks/train_gwhd2021.ipynb` adds 1,707 images from new farms and countries to the training set, keeps `val` and `test` unchanged, and holds out the official 2021 test farms as `test2` (1,380 images, never trained on). All rows use the same protocol (mAP50-95, no test-time augmentation).
+![Location step with a pin, a drawn 12 hectare boundary and photo points on a satellite map, followed by the soil step](docs/images/03-report-location-soil.png)
+
+<details>
+<summary>The first two steps of the form (field, crop and photos)</summary>
+
+![Field and crop details and ten uploaded photos](docs/images/02-report-form.png)
+
+</details>
+
+The report opens with a verdict, heads per m², a yield **range** (never a single made-up figure) and the reasons, each linked to its evidence.
+
+![Report verdict Watch with heads per square metre, yield range, whole-field production, and the reasons](docs/images/04-report-verdict.png)
+
+A short, clearly labelled look ahead turns the forecast into timing advice (irrigate now, wait for rain, a heat or disease warning). It never changes the verdict or the yield range.
+
+![Coming up in the next few days, then actions for this season and the next](docs/images/05-report-forecast-actions.png)
+
+Photo points are coloured by head density, so weak zones show up on the map. Each photo keeps its detections and a heads per m² figure.
+
+![Map with the field boundary and photo points coloured by head density, and annotated photos](docs/images/06-report-map-photos.jpg)
+
+Weather since sowing, and the 7-day forecast (the last two days are marked *less certain* and are not used for advice).
+
+![Weekly rain and crop water use, weekly temperature, and the 7-day forecast table](docs/images/07-report-weather-forecast.png)
+
+<details>
+<summary>Evidence and run details (how every number is traced, and what the workflow did)</summary>
+
+Every number in the report comes from this evidence list. The model may cite the ids but cannot add figures.
+
+![Evidence table and the drivers behind the verdict](docs/images/08-report-evidence.png)
+
+The run details show the model, attempts, tokens, any checks the first draft failed, and the time per LangGraph step.
+
+![Run details with per-step timings](docs/images/09-report-run-details.png)
+
+</details>
+
+A chat under the report answers questions from the report's own facts, and turns your replies to the open questions into form updates.
+
+![Chat asking why the verdict is not better and whether to irrigate this week](docs/images/10-report-chat.png)
+
+> The photos are real wheat images from the Global Wheat Head Dataset, given demo GPS tags in a paddock near Narrabri, Australia. The report text is real model output from one run; wording varies between runs.
+
+## How the report stays trustworthy
+
+```mermaid
+flowchart LR
+    A["Photos + field form"] --> B["intake<br/>checks"]
+    B --> C["detect_photos<br/>YOLO11 on GPU"]
+    C --> D["locate<br/>GPS, pin, boundary"]
+    D --> W["weather"]
+    D --> F["forecast"]
+    D --> S["soil"]
+    W --> G["find_gaps"]
+    F --> G
+    S --> G
+    G --> H["analyze<br/>rules engine builds the evidence packet"]
+    H --> I["write_report<br/>local Ollama model"]
+    I --> J{"validator"}
+    J -- passes --> K["report"]
+    J -- fails once --> I
+    J -- fails twice --> L["rule-based fallback"] --> K
+```
+
+The agronomy engine is ordinary code. It creates numbered **evidence** (`E1`, `E2`, …), **drivers** (what makes the field good or poor) and **candidate actions**, then decides the verdict and confidence. The language model sees only that packet. The validator then rejects a reply that:
+
+| Rejected when the reply… | Why |
+| --- | --- |
+| contains a number that is not in the packet | no invented figures |
+| names a pesticide or gives an application rate (`120 kg/ha`, `20 bags per hectare`, …) | products and doses are a licensed advisor's call |
+| cites an unknown evidence id, or leaves out a required action | every statement stays traceable |
+| contains a link, HTML, a raw id or a technical field name | plain text only, no outside content |
+| talks about coming days as certain (a weekday, "tomorrow", "next five days" with no *forecast* or *expected*) | predictions must sound like predictions |
+
+What the validator **cannot** check is whether every phrase of prose is true, so poor verdicts and low-confidence reports are flagged for agronomist review. Details, measured reliability and limits: [docs/FIELD_REPORT.md](docs/FIELD_REPORT.md).
+
+## Results
+
+All scores use the same protocol: no test-time augmentation, each model at its own image size. `val` is a random 10% of the training farms, `test` is two farms held out entirely, `test2` is the official GWHD 2021 test farms (1,380 images, never trained on).
+
+![Bar chart of mAP50-95 for four models on val, test and test2](docs/images/results.png)
 
 | Model | Trained on | Val | Test | Test2 |
 | --- | --- | ---: | ---: | ---: |
 | YOLO11s | old data | 0.5248 | 0.3720 | 0.1487 |
-| YOLO11m combined | old data | 0.5340 | 0.3791 | 0.1662 |
-| **YOLO11s** | old + new farms | 0.5243 | 0.3855 | **0.3005** |
-| YOLO11m | old + new farms | 0.5289 | **0.3916** | 0.2799 |
+| YOLO11m combined (1280 px, balanced sampling, extra augmentation) | old data | 0.5340 | 0.3791 | 0.1662 |
+| **YOLO11s** | old + 1,707 new-farm images | 0.5243 | 0.3855 | **0.3005** |
+| YOLO11m | old + 1,707 new-farm images | 0.5289 | **0.3916** | 0.2799 |
 
-More diverse training farms doubled the `test2` score with the same model, while a bigger model added nothing reliable on top. Details and the leakage checks are in [docs/TRAINING.md](docs/TRAINING.md) section 8.3.
+- Five changes at once (bigger model, higher resolution, longer training, balanced sampling, more augmentation) cost about 9 hours and added little on unseen farms. **More diverse farms doubled the `test2` score** with the same small model.
+- The deployed model is the YOLO11s trained on all the data. Counting error at the app's default confidence is about **5 to 6% (median) on familiar farms and 13% on farms from other countries**, where it tends to undercount by about 14%, so reports show ranges and let users correct the counter with hand counts.
+- Test-time augmentation helped one model and hurt another, so it is off by default. The full analysis, every setting, the metrics explained and the dead ends are in [docs/TRAINING.md](docs/TRAINING.md) and [docs/METRICS.md](docs/METRICS.md).
 
-## Wheat Advisor App
+On an 8 GB RTX 5050 laptop GPU the counter takes about 20 to 150 ms per 1024 × 1024 photo, and a full field report (10 photos, weather, forecast, soil, model, validation) takes about 15 to 25 seconds with `qwen3.5:9b` fully on the GPU.
 
-A Streamlit app in [frontend/](frontend/) with two pages that share one GPU-loaded detector:
+## Quick start
 
-- **Head counter**: detects and counts wheat heads in uploaded photos (any common image format, one or many at once).
-- **Field report**: photos plus field details (location, soil, crop, history) in, a condition report out: verdict, reasons, yield range, and actions for this season and the next. A LangGraph workflow runs the steps and a local Ollama model (`qwen3.5:9b`) writes the wording, with a validator that rejects invented numbers, products and doses. Details: [docs/FIELD_REPORT.md](docs/FIELD_REPORT.md).
+> The trained weights are **not** in the repository (model files are kept out of Git). Train them with the notebooks (see [docs/TRAINING.md](docs/TRAINING.md#10-reproducing-the-project)) or point `WHEAT_MODEL` at your own YOLO weights. The tests and the whole workflow logic run without them.
 
-Setup for the field report: `ollama pull qwen3.5:9b` (needs a recent Ollama). Run the tests with `cd frontend; ..\.venv\Scripts\python -m pytest tests -q`.
+```bash
+git clone https://github.com/srujansrutha/GWD-workflow.git
+cd GWD-workflow
 
-The model is loaded onto the GPU the first time the page is opened (the launcher opens it for you) and then stays there until you stop the app, even with no browser open.
+python -m venv .venv
+.venv\Scripts\activate            # Linux/macOS: source .venv/bin/activate
+pip install -r requirements.txt   # for a GPU, install a CUDA build of PyTorch first (pytorch.org)
 
-```powershell
-frontend\run_app.bat          # or: cd frontend; ..\.venv\Scripts\python -m streamlit run app.py
+ollama pull qwen3.5:9b            # the report writer (needs a recent Ollama)
+
+# put your weights at weights/wheat_yolo11s_gwhd21.pt, or: set WHEAT_MODEL=path\to\best.pt
+frontend\run_app.bat              # Linux/macOS: ./frontend/run_app.sh
 ```
 
-Then open http://localhost:8501. The app shows annotated images, a count per image, a summary table, and downloads for annotated pictures (ZIP) and counts (CSV). Move the confidence slider to filter detections instantly without re-running the model.
+Open <http://localhost:8501>. The detector loads onto the GPU the first time a page is opened and stays there until you stop the app. Without Ollama the report still works, using the rule-based wording.
 
-- **Weights:** `weights/wheat_yolo11s_gwhd21.pt` (the YOLO11s model trained on the old + 2021 data). Set the `WHEAT_MODEL` environment variable to use another file. Weights are not versioned in Git.
-- **Default confidence 0.25** gave the most accurate counts on labelled test photos (median error about 5-6% on familiar farms, 13% on farms from other countries).
-- **Stopping:** press Ctrl+C in its window, or end the process listening on port 8501. After editing the code, restart the app (file watching is off to keep the GPU model stable).
-- The app listens on `localhost` only. To share it on your network, start it with `--server.address 0.0.0.0` (there is no login).
+Run the tests (about 3 seconds, no GPU, network or model needed):
 
-## Layout
-
-- `docs/TRAINING.md`: detailed training guide, experiment history, and interview Q&A.
-- `docs/FIELD_REPORT.md`: how the field report works: workflow, validation, model choice and limits.
-- `docs/METRICS.md`: every detection and counting metric explained, with this project's results in those terms.
-- `notebooks/train.ipynb`: data preparation, training, evaluation, and qualitative inspection.
-- `frontend/`: the Streamlit counting app (`app.py`, `wheat_detector.py`, `run_app.bat`).
-- `notebooks/train_gwhd2021.ipynb`: adds the 2021 dataset, checks for leakage, trains and compares models.
-- `data/raw/`: Kaggle download containing `train.csv` and the source images. Ignored by Git.
-- `data/yolo/`: generated YOLO images, labels, and dataset definitions. Ignored by Git.
-- `weights/`: downloaded pretrained weights and locally trained checkpoints. Ignored by Git.
-- `runs/detect/`: generated Ultralytics training and evaluation artifacts. Ignored by Git.
-
-## Setup
-
-Create a Python environment, install the dependencies, download the competition data, then open `notebooks/train.ipynb` from the repository root.
-
-```powershell
-pip install -r requirements.txt
-pip install kaggle
-kaggle competitions download -c global-wheat-detection -p data/raw
+```bash
+python -m pytest
 ```
 
-Extract the downloaded archive so `data/raw/train.csv` and `data/raw/train/` exist. The notebook finds the repository root automatically and writes all generated files under this repository.
+## Repository layout
 
-GPU training is expected. The recorded YOLO11s baseline used an NVIDIA GeForce RTX 5050 Laptop GPU with 8 GB VRAM, `imgsz=1024`, and `batch=4`.
+```text
+.
+├── frontend/
+│   ├── app.py, common.py            Streamlit router and the shared GPU model
+│   ├── counter_page.py              Head counter page
+│   ├── report_page.py               Field report page
+│   ├── wheat_detector.py            YOLO wrapper: GPU residency, OOM fallbacks, any image format
+│   ├── advisor/
+│   │   ├── graph.py                 LangGraph workflow
+│   │   ├── engine.py                Rules engine and evidence packet (plain code)
+│   │   ├── llm.py                   Prompt, validator, rule-based fallback
+│   │   ├── chat.py                  Chat about the report and fact extraction
+│   │   ├── weather.py, geo.py, soil.py   Weather and forecast, GPS and geometry, soil
+│   │   └── config.py, schemas.py, knowledge.py
+│   └── tests/test_advisor.py        116 tests
+├── notebooks/                       Data preparation, training and evaluation
+├── docs/                            Guides (below) and screenshots
+├── requirements.txt, ruff.toml, pytest.ini
+└── .github/workflows/ci.yml         Lint and tests on every push
+```
 
-## Running The Workflow
+| Document | What is in it |
+| --- | --- |
+| [docs/FIELD_REPORT.md](docs/FIELD_REPORT.md) | The report workflow, validation, forecast logic, chat, privacy table, model choice and limits |
+| [docs/TRAINING.md](docs/TRAINING.md) | The training guide: dataset, split design, every setting and why, experiments, problems met |
+| [docs/METRICS.md](docs/METRICS.md) | Detection and counting metrics explained, with this project's numbers |
+| [docs/field_advisor_plan.html](docs/field_advisor_plan.html) | The original plan and design reasoning (open the file in a browser) |
 
-Run the notebook cells in order:
+## Known limits
 
-1. Prepare YOLO labels and the train, val, and test splits.
-2. Run the three-epoch smoke test.
-3. Run the 60-epoch YOLO11m training.
-4. Evaluate the best checkpoint on `val` and `test`.
+- **Agronomy values are generic placeholders** (reference head density, kernels per head, grain weight, soil and weather thresholds). They need local values per region and variety before real advice.
+- The free **SoilGrids** service often returns nothing, so soil advice then asks for a soil test instead of guessing.
+- The forecast covers the next 5 days and is not used for the yield range. Frost, wind and storm warnings are not covered.
+- The validator checks numbers, products, doses and wording rules, not every claim in the prose.
+- Not built yet: satellite vegetation zones, PDF export, accounts and a database. It is a single-user, single-machine app.
 
-The repository does not version raw images, generated run artifacts, or model weights. Keep those locally or store them in dedicated dataset/model storage.
+## Credits and licence
+
+- **Data:** Global Wheat Head Dataset, David et al., *Plant Phenomics* 2020 (the Kaggle *Global Wheat Detection* data) and *Global Wheat Head Dataset 2021: more diversity to improve the benchmarking of wheat head localization methods*, arXiv:2105.07660, [DOI 10.5281/zenodo.5092309](https://doi.org/10.5281/zenodo.5092309) (CC BY 4.0). The demo photos in the screenshots come from this data.
+- **Detector:** [Ultralytics YOLO11](https://github.com/ultralytics/ultralytics) (AGPL-3.0). **Workflow:** [LangGraph](https://github.com/langchain-ai/langgraph). **Local LLM:** [Ollama](https://ollama.com) with `qwen3.5:9b`.
+- **Online lookups:** weather and forecast by [Open-Meteo](https://open-meteo.com), place names from OpenStreetMap Nominatim, soil estimates from ISRIC SoilGrids, satellite basemap by Esri.
+- The code in this repository is released under the [MIT licence](LICENSE). Dependencies keep their own licences (note that Ultralytics is AGPL-3.0).
+
+Built by **J Srujan Vishwakarma** ([@srujansrutha](https://github.com/srujansrutha)).

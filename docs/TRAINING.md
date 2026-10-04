@@ -1,6 +1,6 @@
-# Wheat Head Detection: Training Guide, Revision Notes and Interview Prep
+# Wheat Head Detection: Training Guide and Revision Notes
 
-This document explains everything done in this project: the data, the pipeline, every training setting and why it was chosen, all experiments with their real results, the mistakes made along the way, and a question-and-answer section for interviews.
+This document explains everything done in this project: the data, the pipeline, every training setting and why it was chosen, all experiments with their real results, the mistakes made along the way, and a question-and-answer section.
 
 All numbers below were measured in this repository. Where something is an inference and not a measured fact, it is marked as such.
 
@@ -368,7 +368,7 @@ Raw data, generated images and labels, weights and run folders are not versioned
 
 ---
 
-## 11. Interview questions and answers
+## 11. Questions and answers
 
 ### Project and framing
 
@@ -613,7 +613,7 @@ Use this as a checklist. First find the symptom, then change only the matching k
 
 When scores are stuck, the answer is usually better or more varied data before fancier tricks.
 
-## 14. Honest limitations (say these in an interview)
+## 14. Honest limitations
 
 - One training run per configuration, so differences under about 0.005 mAP are not distinguishable from noise.
 - The combined run changed five things together, so no single change can be credited or blamed.

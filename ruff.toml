@@ -1,0 +1,7 @@
+line-length = 140
+target-version = "py310"
+extend-exclude = ["notebooks", "runs", "data", "weights"]
+
+[lint]
+# Real bugs only (undefined names, unused imports, syntax errors, mutable defaults), not style.
+select = ["F", "E9", "PLE", "B006", "B008"]
