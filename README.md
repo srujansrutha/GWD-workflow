@@ -97,7 +97,7 @@ A chat under the report answers questions from the report's own facts, and turns
 ## How the report stays trustworthy
 
 ```mermaid
-flowchart LR
+flowchart TD
     A["Photos + field form"] --> B["intake<br/>checks"]
     B --> C["detect_photos<br/>YOLO11 on GPU"]
     C --> D["locate<br/>GPS, pin, boundary"]
