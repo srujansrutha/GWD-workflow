@@ -1,5 +1,0 @@
-path: E:\BrainFood\GWD_workflow\data\yolo
-train: images/train
-val: images/ood
-nc: 1
-names: ['wheat_head']

@@ -7,9 +7,13 @@ venv/
 
 # Dataset downloads, generated YOLO splits, and Ultralytics caches
 data/raw/
+data/gwhd2021/
+data/yolo21/
 data/yolo/images/
 data/yolo/labels/
 data/yolo/*.cache
+data/yolo/train_balanced.txt
+data/yolo/wheat_balanced.yaml
 
 # Model artifacts and experiment outputs
 weights/*.pt
