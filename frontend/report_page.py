@@ -8,7 +8,6 @@ from __future__ import annotations
 import hashlib
 import html
 import json
-import re
 from datetime import date, timedelta
 
 import folium
@@ -19,7 +18,8 @@ from pydantic import ValidationError
 from streamlit_folium import st_folium
 
 from advisor import config as acfg
-from advisor import geo, graph, llm
+from advisor import chat, geo, graph, llm
+from advisor import weather as wxmod
 from advisor.schemas import LEVELS, TEXTURES, FieldInput, PhotoIn, SoilInput
 from common import inject_report_css, load_detector
 
@@ -45,6 +45,29 @@ def llm_status() -> dict:
 
 def clear_location() -> None:
     st.session_state.update(pin=None, polygon=[], last_click=None, pin_lat_in=0.0, pin_lon_in=0.0)
+
+
+FORM_KEYS = {"kernels_per_head": "a_k", "tkw_g": "a_t", "previous_crop": "f_prev", "problems_noticed": "f_problems",
+             "irrigated": "f_irr", "target_yield_t_ha": "f_target", "soil_ph": "s_ph", "soil_organic_matter_pct": "s_om",
+             "phosphorus": "s_p", "potassium": "s_k", "nitrogen": "s_n"}
+
+
+def apply_updates(updates: dict, idx: int) -> None:
+    """Put what the user said in the chat into the form, then ask for the report to be re-run."""
+    for k, v in updates.items():
+        if k == "inputs_applied":
+            old = st.session_state.get("f_applied", "").strip()
+            st.session_state["f_applied"] = (old + "\n" + v).strip() if old else v
+        else:
+            st.session_state[FORM_KEYS[k]] = v
+    st.session_state["fr_chat"][idx]["applied"] = True
+    st.session_state["fr_rerun"] = True
+
+
+def ask_in_chat(question: str) -> None:
+    msgs = st.session_state.setdefault("fr_chat", [])
+    if not msgs or msgs[-1]["content"] != question:
+        msgs.append({"role": "assistant", "content": question})
 
 
 def step(n: int, title: str, sub: str = "") -> None:
@@ -73,7 +96,8 @@ st.markdown(
 <div class="hero">
   <h1>📋 Field report</h1>
   <p>Upload field photos, describe the field, and get a condition report with the reasons behind it and what to do
-  about it. Everything runs on this machine.</p>
+  about it. Your photos and the AI model stay on this machine. Only the field's approximate position is sent to free
+  online services to look up the weather and forecast, the place name and the soil.</p>
   <span class="chip"><span class="{'dot' if detector.on_gpu else 'dot warn'}"></span>{esc(detector.device_name)}</span>
   <span class="chip"><span class="{dot_llm}"></span>{llm_text}</span>
   <span class="chip">Workflow: LangGraph</span>
@@ -120,7 +144,7 @@ with st.container(border=True):
         st.caption("Without the photo area the report shows head counts only, with no heads per m² or yield.")
 
     raws = [(u.name, u.getvalue()) for u in uploads or []]
-    digests = [hashlib.md5(r).hexdigest() for _, r in raws]
+    digests = [hashlib.md5(r, usedforsecurity=False).hexdigest() for _, r in raws]
     metas = [photo_meta(d, r) for d, (_, r) in zip(digests, raws)]
     hand = [None] * len(raws)
     if raws:
@@ -130,7 +154,7 @@ with st.container(border=True):
         df = pd.DataFrame({"Photo": [n for n, _ in raws], "GPS": ["yes" if m["has_gps"] else "no" for m in metas],
                            "Taken": [(m["time"] or "")[:16].replace("T", " ") for m in metas],
                            "Hand count (optional)": pd.array([None] * len(raws), dtype="Int64")})
-        ed = st.data_editor(df, hide_index=True, width="stretch", key="hc_" + hashlib.md5("".join(digests).encode()).hexdigest()[:10],
+        ed = st.data_editor(df, hide_index=True, width="stretch", key="hc_" + hashlib.md5("".join(digests).encode(), usedforsecurity=False).hexdigest()[:10],
                             disabled=["Photo", "GPS", "Taken"],
                             column_config={"Hand count (optional)": st.column_config.NumberColumn(min_value=0, max_value=2000, step=1)})
         hand = [None if pd.isna(v) else int(v) for v in ed["Hand count (optional)"]]
@@ -221,6 +245,7 @@ with st.expander("Advanced settings"):
 # --------------------------------------------------------------------------- run
 run_col, clr_col = st.columns([1, 4])
 go = run_col.button("Analyze field", type="primary", width="stretch", disabled=not raws)
+go = bool(st.session_state.pop("fr_rerun", False) and raws) or go      # set when chat answers are added to the form
 if not raws:
     clr_col.caption("Upload at least one photo to begin.")
 
@@ -237,6 +262,15 @@ def build_field() -> FieldInput:
         reference_heads_low=ref_lo or None, reference_heads_high=ref_hi or None, conf=conf,
         soil=SoilInput(ph=ph or None, organic_matter_pct=om or None, texture=tex, p_level=pl, k_level=kl, n_level=nl,
                        test_date=tdate or None))
+
+
+def input_signature() -> str:
+    """A fingerprint of everything the report depends on, to notice edits made after the report was produced."""
+    try:
+        body = build_field().model_dump_json()
+    except ValidationError:
+        body = "invalid"
+    return hashlib.md5((body + "|".join(digests) + repr(hand)).encode(), usedforsecurity=False).hexdigest()
 
 
 if go:
@@ -263,6 +297,7 @@ if go:
             status.update(label="Report ready", state="complete", expanded=False)
         else:
             status.update(label="More information is needed", state="error", expanded=False)
+    st.session_state["fr_sig"] = input_signature()
     st.session_state["fr_result"] = state.get("report")
     st.session_state["fr_blocked"] = None if state.get("status") == "done" else state.get("issues", [])
     st.session_state["fr_graph_mermaid"] = app.get_graph().draw_mermaid()
@@ -275,6 +310,8 @@ if st.session_state.get("fr_blocked"):
 R = st.session_state.get("fr_result")
 if not R:
     st.stop()
+if st.session_state.get("fr_sig") != input_signature():
+    st.warning("You changed the form or the photos after this report was made. Click **Analyze field** to update it.")
 
 
 # =========================================================================== results
@@ -284,6 +321,11 @@ def to_markdown(r: dict) -> str:
              f"**Verdict:** {r['verdict']} · **Confidence:** {r['confidence']} · generated {r['generated']}", "", r["summary"], "",
              "## Why", ""]
     lines += [f"- {x['text']} ({', '.join(x['evidence_ids'])})" for x in r["reasons"]]
+    soon, soon_actions = r["packet"].get("outlook", []), [a for a in r["actions"] if a["window"] == "next_days"]
+    if soon or soon_actions:
+        lines += ["", "## Coming up in the next few days (forecast, less certain than measurements)", ""]
+        lines += [f"- {o['text']}" for o in soon]
+        lines += [f"- {a['text']}" + (" *(confirm with an agronomist)*" if a["confirm"] else "") + f"\n  - {a['why']}" for a in soon_actions]
     for title, win in (("This season", "this_season"), ("Next season", "next_season")):
         items = [a for a in r["actions"] if a["window"] == win]
         if items:
@@ -328,11 +370,33 @@ st.write("")
 view = st.segmented_control("View", ["Report", "Map and photos", "Weather and soil", "Evidence", "Run details"],
                             default="Report", required=True, key="fr_view", label_visibility="collapsed")
 
+
+def action_card(a: dict) -> None:
+    tag = '<span class="tag">CONFIRM WITH AN AGRONOMIST</span>' if a["confirm"] else ""
+    st.markdown(f'<div class="act"><b>{esc(a["text"])}{tag}</b><div class="why">{esc(a["why"])} '
+                f'{ev_chips(a["evidence_ids"], R["evidence"])}</div></div>', unsafe_allow_html=True)
+
+
 if view == "Report":
     st.markdown(f"#### Summary\n{R['summary']}")
     st.markdown("#### Why")
     for x in R["reasons"]:
-        st.markdown(f"- {x['text']} {ev_chips(x['evidence_ids'], R['evidence'])}", unsafe_allow_html=True)
+        st.markdown(f"- {esc(x['text'])} {ev_chips(x['evidence_ids'], R['evidence'])}", unsafe_allow_html=True)
+    if "forecast" in R:                       # reports made before the forecast existed have no such section
+        fc = R["forecast"] or {}
+        st.markdown("#### Coming up in the next few days")
+        if fc.get("summary"):
+            age = wxmod.forecast_age_hours(fc)
+            if age is not None and age > acfg.FORECAST_STALE_HOURS:
+                st.warning(f"This forecast was made about {age:.0f} hours ago. Click **Analyze field** to get a fresh one.")
+            for o in R["packet"].get("outlook", []):
+                st.markdown(f"- {esc(o['text'])} {ev_chips(o['evidence'], R['evidence'])}", unsafe_allow_html=True)
+            for a in [a for a in R["actions"] if a["window"] == "next_days"]:
+                action_card(a)
+            st.caption(f"This is a forecast, so it can be wrong. Only the next {fc['summary']['action_days']} days drive this advice, "
+                       "and it does not change the yield range.")
+        else:
+            st.caption("The weather forecast could not be loaded, so there is no advice for the next few days.")
     ca, cb = st.columns(2, gap="large")
     for col, title, win in ((ca, "This season", "this_season"), (cb, "Next season", "next_season")):
         with col:
@@ -341,13 +405,14 @@ if view == "Report":
             if not items:
                 st.caption("Nothing specific.")
             for a in items:
-                tag = '<span class="tag">CONFIRM WITH AN AGRONOMIST</span>' if a["confirm"] else ""
-                st.markdown(f'<div class="act"><b>{esc(a["text"])}{tag}</b><div class="why">{esc(a["why"])} '
-                            f'{ev_chips(a["evidence_ids"], R["evidence"])}</div></div>', unsafe_allow_html=True)
+                action_card(a)
     if R["open_questions"]:
         st.markdown("#### Still open")
-        for q in R["open_questions"]:
-            st.markdown(f"- {q}")
+        st.caption("Answer these in the chat at the bottom of the page, or fill in the form above and analyze again.")
+        for qi, q in enumerate(R["open_questions"]):
+            qc1, qc2 = st.columns([5, 1.3])
+            qc1.markdown(f"- {q}")
+            qc2.button("Answer in chat", key=f"oq_{qi}", on_click=ask_in_chat, args=(q,), width="stretch")
     if R["gaps"] or R["issues"]:
         st.markdown("#### What would make this better")
         for g in R["gaps"]:
@@ -427,6 +492,21 @@ elif view == "Weather and soil":
         st.caption(f"Source: {wx['source']}, data to {s['last_date']}. Water use is FAO reference evapotranspiration.")
     else:
         st.info("No weather data for this run." + (f" ({wx['error']})" if wx and "error" in wx else ""))
+    fc = R.get("forecast") or {}
+    st.markdown("#### Forecast for the next days")
+    if fc.get("days"):
+        n_act = acfg.FORECAST_ACTION_DAYS
+        st.dataframe(pd.DataFrame([{
+            "Day": date.fromisoformat(d["date"]).strftime("%a %d %b") + ("" if i < n_act else "  (less certain)"),
+            "Rain, mm": d["rain_mm"], "Chance of rain, %": d["chance_pct"], "High, °C": d["tmax"], "Low, °C": d["tmin"],
+            "Humidity, %": d["humidity_pct"]} for i, d in enumerate(fc["days"])]), hide_index=True, width="stretch")
+        st.bar_chart(pd.DataFrame({"Forecast rain (mm)": [d["rain_mm"] or 0 for d in fc["days"]]},
+                                  index=[d["date"] for d in fc["days"]]), height=200)
+        age = wxmod.forecast_age_hours(fc)
+        st.caption(f"Source: {fc['source']}" + ("" if age is None else ", made just now" if age < 1 else f", made {age:.0f} hours ago")
+                   + f". The first {n_act} days drive the advice. Later days are for planning only.")
+    else:
+        st.info("No forecast for this run." + (f" ({fc['error']})" if fc.get("error") else ""))
     st.markdown("#### Soil")
     so = R["soil"]
     st.dataframe(pd.DataFrame({"Item": ["Source", "pH", "Organic matter %", "Texture", "Phosphorus", "Potassium", "Nitrogen", "Test date"],
@@ -449,7 +529,9 @@ else:
     r1, r2, r3, r4 = st.columns(4)
     r1.metric("Model", stt["model"])
     r2.metric("Attempts", stt["attempts"])
-    r3.metric("Report source", "Rule-based fallback" if stt["used_fallback"] else "Language model")
+    r3.metric("Report written by", "Fallback" if stt["used_fallback"] else "AI model",
+              help="AI model: the local language model wrote the wording and it passed every check. "
+                   "Fallback: the rule-based wording was used because the model's reply failed the checks twice, or it was not available.")
     r4.metric("Model time", f"{stt['seconds']:.0f} s")
     st.caption(f"Tokens: {stt['prompt_tokens']:,} in, {stt['output_tokens']:,} out.")
     if stt["errors"]:
@@ -461,3 +543,33 @@ else:
     if st.session_state.get("fr_graph_mermaid"):
         with st.expander("Workflow graph (Mermaid)"):
             st.code(st.session_state["fr_graph_mermaid"], language="text")
+
+
+# =========================================================================== chat
+st.divider()
+st.markdown("### Ask about this report")
+st.caption("Ask why the verdict is what it is, or answer the open questions in your own words. "
+           "Facts you give can be added to the report with one click.")
+history = st.session_state.setdefault("fr_chat", [])
+for ci, m in enumerate(history):
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"])
+        if m["role"] == "assistant" and m.get("updates"):
+            st.markdown("**I can add this to the report:**")
+            for line in chat.describe(m["updates"]):
+                st.markdown(f"- {line}")
+            if m.get("applied"):
+                st.caption("✓ Added to the form. The report was run again.")
+            else:
+                st.button("Add to the report and run it again", key=f"apply_{ci}", type="primary",
+                          on_click=apply_updates, args=(m["updates"], ci))
+if history:
+    st.button("Clear chat", key="clear_chat", on_click=lambda: st.session_state.update(fr_chat=[]))
+
+user_msg = st.chat_input("Ask a question, or answer one of the open questions…")
+if user_msg:
+    history.append({"role": "user", "content": user_msg})
+    with st.spinner("Thinking…"):
+        res = chat.chat_turn(R["packet"], [{"role": h["role"], "content": h["content"]} for h in history[:-1]], user_msg)
+    history.append({"role": "assistant", "content": res["answer"], "updates": res["updates"]})
+    st.rerun()

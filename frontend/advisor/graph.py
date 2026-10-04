@@ -1,6 +1,6 @@
 """The field-report workflow as a LangGraph graph.
 
-  START -> intake -> detect_photos -> locate -> (weather | soil in parallel) -> find_gaps -> analyze
+  START -> intake -> detect_photos -> locate -> (weather | soil | forecast in parallel) -> find_gaps -> analyze
         -> write_report -> validate_report -> finalize
                                    |-> write_report (retry once with the error list)
                                    |-> fallback_report -> finalize
@@ -9,7 +9,6 @@ Any step that cannot continue sets status "needs_input" and the run ends early w
 """
 from __future__ import annotations
 
-import io
 import statistics
 import time
 from datetime import date
@@ -47,6 +46,7 @@ class AdvisorState(TypedDict, total=False):
     photo_results: list[dict]
     location: dict
     weather: Optional[dict]
+    forecast: Optional[dict]
     soil: dict
     gaps: list[dict]
     analysis: dict
@@ -198,7 +198,7 @@ def locate(state: AdvisorState) -> dict:
 
 
 def after_locate(state: AdvisorState):
-    return END if state.get("status") == "needs_input" else ["weather", "soil"]
+    return END if state.get("status") == "needs_input" else ["weather", "soil", "forecast"]
 
 
 # ----------------------------------------------------------------------------- 4. enrich (parallel)
@@ -206,6 +206,12 @@ def after_locate(state: AdvisorState):
 def weather_node(state: AdvisorState) -> dict:
     f, loc = state["field"], state["location"]
     return {"weather": wxmod.get_weather(loc["lat"], loc["lon"], f.sowing_date, f.growth_stage, f.irrigated)}
+
+
+@timed("forecast")
+def forecast_node(state: AdvisorState) -> dict:
+    loc = state["location"]
+    return {"forecast": wxmod.get_forecast(loc["lat"], loc["lon"])}
 
 
 @timed("soil")
@@ -218,6 +224,7 @@ def soil_node(state: AdvisorState) -> dict:
 @timed("find_gaps")
 def find_gaps(state: AdvisorState) -> dict:
     f, loc, wx, soil = state["field"], state["location"], state.get("weather"), state["soil"]
+    fc = state.get("forecast")
     used = [p for p in state["photo_results"] if p["usable"]]
     gaps = []
     if not f.photo_area_m2:
@@ -225,7 +232,9 @@ def find_gaps(state: AdvisorState) -> dict:
     if len(used) < 10:
         gaps.append({"level": "important" if len(used) < 5 else "minor", "message": f"Only {len(used)} photo{'s' if len(used) != 1 else ''} analysed. Ten or more spread over the field give a much better field average."})
     if not wx or "error" in wx:
-        gaps.append({"level": "important", "message": "Weather data could not be loaded, so water and heat checks were skipped." + (f" ({wx['error']})" if wx and 'error' in wx else "")})
+        gaps.append({"level": "important", "message": "Weather data could not be loaded, so water and heat checks were skipped."})
+    if not fc or "error" in fc:
+        gaps.append({"level": "minor", "message": "The weather forecast could not be loaded, so advice for the next few days was skipped."})
     if not f.soil.provided:
         msg = "No soil test was entered."
         if soil.get("source", "").startswith("SoilGrids"):
@@ -244,7 +253,7 @@ def find_gaps(state: AdvisorState) -> dict:
 @timed("analyze")
 def analyze(state: AdvisorState) -> dict:
     out = engine.analyze(state["field"], state["photo_results"], state["location"], state.get("weather"),
-                         state["soil"], state.get("gaps", []))
+                         state["soil"], state.get("gaps", []), state.get("forecast"))
     return {"analysis": out, "attempts": 0, "validation_errors": [], "stats": RunStats(model=cfg.OLLAMA_MODEL)}
 
 
@@ -324,7 +333,7 @@ def finalize(state: AdvisorState) -> dict:
         "actions": actions, "open_questions": draft.open_questions, "limitations": draft.limitations,
         "assumptions": packet["assumptions"], "gaps": state.get("gaps", []), "issues": state.get("issues", []),
         "evidence": ev, "drivers": packet["drivers"], "packet": packet, "aggregate": agg, "yield": a["yield"],
-        "spatial": a["spatial"], "photos": photos, "location": state["location"], "weather": state.get("weather"),
+        "spatial": a["spatial"], "photos": photos, "location": state["location"], "weather": state.get("weather"), "forecast": state.get("forecast"),
         "soil": state["soil"], "stats": stats.__dict__, "timings": state.get("timings", {}),
         "generated": date.today().isoformat(),
     }
@@ -335,7 +344,7 @@ def finalize(state: AdvisorState) -> dict:
 def build_graph():
     g = StateGraph(AdvisorState)
     for name, fn in (("intake", intake), ("detect_photos", detect_photos), ("locate", locate), ("weather", weather_node),
-                     ("soil", soil_node), ("find_gaps", find_gaps), ("analyze", analyze), ("write_report", write_report),
+                     ("forecast", forecast_node), ("soil", soil_node), ("find_gaps", find_gaps), ("analyze", analyze), ("write_report", write_report),
                      ("validate_report", validate_report), ("fallback_report", fallback_report), ("finalize", finalize)):
         g.add_node(name, fn)
     g.add_edge(START, "intake")
@@ -343,8 +352,8 @@ def build_graph():
                             {END: END, "detect_photos": "detect_photos"})
     g.add_conditional_edges("detect_photos", lambda s: END if s.get("status") == "needs_input" else "locate",
                             {END: END, "locate": "locate"})
-    g.add_conditional_edges("locate", after_locate, ["weather", "soil", END])
-    g.add_edge(["weather", "soil"], "find_gaps")
+    g.add_conditional_edges("locate", after_locate, ["weather", "soil", "forecast", END])
+    g.add_edge(["weather", "soil", "forecast"], "find_gaps")
     g.add_edge("find_gaps", "analyze")
     g.add_edge("analyze", "write_report")
     g.add_edge("write_report", "validate_report")
@@ -356,7 +365,7 @@ def build_graph():
 
 NODE_LABELS = {
     "intake": "Checking your inputs", "detect_photos": "Counting wheat heads on the GPU",
-    "locate": "Locating the field", "weather": "Fetching weather", "soil": "Looking up soil",
+    "locate": "Locating the field", "weather": "Fetching weather", "forecast": "Fetching the weather forecast", "soil": "Looking up soil",
     "find_gaps": "Looking for missing information", "analyze": "Analyzing the field",
     "write_report": "Writing the report with the local model", "validate_report": "Checking the report against the evidence",
     "fallback_report": "Using the safe rule-based report", "finalize": "Putting the report together",

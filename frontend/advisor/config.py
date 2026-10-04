@@ -28,6 +28,25 @@ HEADS_REFERENCE = (400, 600)   # heads per m2 expected for a healthy stand at he
 KERNELS_PER_HEAD = (28, 34, 40)    # low, central, high
 TKW_G = (35, 42, 48)               # thousand-kernel weight, grams: low, central, high
 CV_MODERATE, CV_HIGH = 15.0, 25.0  # photo-to-photo variation in percent
+# Beyond these, the input is almost certainly wrong (for example a mistyped photo area), so no verdict is given.
+MAX_PLAUSIBLE_DENSITY = 1500       # heads per m2
+MAX_PLAUSIBLE_YIELD = 14.0         # t/ha
+
+# --- weather forecast: warnings and timing only. It never changes the verdict, the confidence or the yield range.
+FORECAST_DAYS = 7                  # days fetched and shown to the reader
+FORECAST_ACTION_DAYS = 5           # only the first days drive advice; forecasts get weaker after about 5 days
+FORECAST_CACHE_HOURS = 3           # a saved forecast is reused for this long
+FORECAST_STALE_HOURS = 12          # the report page warns when its forecast is older than this
+FORECAST_RAIN_DAY_MM = 1.0         # a rainy day
+FORECAST_NOTABLE_MM = 5.0          # the wettest day gets its own fact only when it is at least this wet
+FORECAST_DRY_MM = 3.0              # less than this over the action window means no useful rain
+FORECAST_HEAVY_RAIN_MM = 10.0      # enough rain to change irrigation or harvest plans
+FORECAST_MIN_CHANCE = 50           # percent chance the service must give for that rain, when it gives one
+FORECAST_HOT_C = 30.0
+FORECAST_HOT_DAYS = 2              # hot days in the action window that trigger a heat warning
+FORECAST_WET_DAYS = 3              # warm, humid, rainy days in the action window that raise disease risk
+FORECAST_WET_MIN_TMAX = 15.0
+FORECAST_WET_MIN_RH = 70.0
 
 STAGES = ["Tillering", "Stem elongation", "Heading", "Flowering", "Grain fill", "Ripening"]
 HEADS_VISIBLE_STAGES = {"Heading", "Flowering", "Grain fill", "Ripening"}

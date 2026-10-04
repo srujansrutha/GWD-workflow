@@ -105,13 +105,13 @@ def compass(dx: float, dy: float) -> str:
 # ----------------------------------------------------------------------------- reverse geocoding
 def reverse_geocode(lat: float, lon: float) -> dict:
     """Region and country for a point (OpenStreetMap Nominatim, cached). Returns {} when offline."""
-    key = hashlib.md5(f"{lat:.3f},{lon:.3f}".encode()).hexdigest()
+    key = hashlib.md5(f"{lat:.2f},{lon:.2f}".encode(), usedforsecurity=False).hexdigest()
     path = config.CACHE_DIR / f"geo_{key}.json"
     if path.exists():
         return json.loads(path.read_text(encoding="utf-8"))
     try:
         r = requests.get("https://nominatim.openstreetmap.org/reverse",
-                         params={"lat": lat, "lon": lon, "format": "jsonv2", "zoom": 10, "accept-language": "en"},
+                         params={"lat": round(lat, 2), "lon": round(lon, 2), "format": "jsonv2", "zoom": 10, "accept-language": "en"},   # ~1 km is plenty for a village name
                          headers={"User-Agent": config.USER_AGENT}, timeout=config.HTTP_TIMEOUT)
         r.raise_for_status()
         a = r.json().get("address", {})

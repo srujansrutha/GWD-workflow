@@ -9,6 +9,7 @@ graph TD;
 	detect_photos(detect_photos)
 	locate(locate)
 	weather(weather)
+	forecast(forecast)
 	soil(soil)
 	find_gaps(find_gaps)
 	analyze(analyze)
@@ -23,9 +24,11 @@ graph TD;
 	detect_photos -.-> locate;
 	fallback_report --> finalize;
 	find_gaps --> analyze;
+	forecast --> find_gaps;
 	intake -.-> __end__;
 	intake -.-> detect_photos;
 	locate -.-> __end__;
+	locate -.-> forecast;
 	locate -.-> soil;
 	locate -.-> weather;
 	soil --> find_gaps;

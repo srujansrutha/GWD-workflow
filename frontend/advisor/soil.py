@@ -45,11 +45,11 @@ def usda_texture(sand: float, silt: float, clay: float) -> str:
 
 def estimate_soilgrids(lat: float, lon: float) -> Optional[dict]:
     """Rough topsoil values (0-30 cm) from the global 250 m SoilGrids map. None when the service is down."""
-    key = hashlib.md5(f"{lat:.3f},{lon:.3f}".encode()).hexdigest()
+    key = hashlib.md5(f"{lat:.3f},{lon:.3f}".encode(), usedforsecurity=False).hexdigest()
     path = config.CACHE_DIR / f"soil_{key}.json"
     if path.exists():
         return json.loads(path.read_text(encoding="utf-8")) or None
-    params = [("lon", f"{lon:.5f}"), ("lat", f"{lat:.5f}"), ("value", "mean")]
+    params = [("lon", f"{lon:.3f}"), ("lat", f"{lat:.3f}"), ("value", "mean")]   # the map is 250 m, so 3 decimals (~100 m)
     params += [("property", p) for p in ("phh2o", "soc", "clay", "sand", "silt")]
     params += [("depth", d) for d in DEPTH_WEIGHTS]
     try:

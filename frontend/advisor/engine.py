@@ -6,6 +6,7 @@ facts; a validator later rejects any figure that is not in the packet.
 from __future__ import annotations
 
 import math
+import re
 from datetime import date
 from typing import Optional
 
@@ -44,6 +45,12 @@ class Ledger:
 
 def _r(x: float, nd: int = 0):
     return int(round(x)) if nd == 0 else round(float(x), nd)
+
+
+def clean_text(s: str, n: int = 200) -> str:
+    """Free text typed by the user, made safe to put in a prompt: no control characters, one line, length-limited."""
+    s = re.sub(r"[\x00-\x1f\x7f]+", " ", s or "")
+    return re.sub(r"\s+", " ", s).strip()[:n]
 
 
 # ----------------------------------------------------------------------------- photo statistics
@@ -85,7 +92,7 @@ def aggregate(photos: list[dict], field: FieldInput) -> dict:
 
 
 def spatial_pattern(photos: list[dict]) -> Optional[dict]:
-    """Where the stand is thin or thick, from photo positions. Needs at least 6 photos with GPS."""
+    """Where the stand is thin or thick, from photo positions. Needs 4 photos with GPS for the thinnest points and 6 for a trend."""
     pts = [p for p in photos if p.get("usable", True) and p.get("lat") is not None and p.get("density_m2") is not None]
     if len(pts) < 4:
         return None
@@ -137,8 +144,12 @@ def yield_range(agg: dict, field: FieldInput) -> Optional[dict]:
 
 # ----------------------------------------------------------------------------- the analysis
 def analyze(field: FieldInput, photos: list[dict], location: dict, weather: Optional[dict], soil: dict,
-            gaps: list[dict]) -> dict:
-    """Build the full evidence packet: facts, drivers, candidate actions, verdict and confidence."""
+            gaps: list[dict], forecast: Optional[dict] = None) -> dict:
+    """Build the full evidence packet: facts, drivers, candidate actions, verdict and confidence.
+
+    The forecast only adds short-term warnings and timing advice ("outlook" and "next_days" actions). It adds no
+    drivers, so it cannot change the verdict or the confidence, and it never feeds the yield range.
+    """
     L = Ledger()
     stage = field.growth_stage
     days = (date.today() - field.sowing_date).days
@@ -148,8 +159,19 @@ def analyze(field: FieldInput, photos: list[dict], location: dict, weather: Opti
     assumptions: list[str] = []
     ev: dict[str, str] = {}
 
+    # Inputs that cannot be right (nothing detected, or more heads per m2 than wheat can have) must not produce a
+    # confident verdict or a yield. The usual cause is a mistyped photo area, a wrong stage or unsuitable photos.
+    no_heads = agg.get("n_used", 0) > 0 and agg.get("heads_per_photo_mean", 0) == 0
+    implausible = bool("density_mean" in agg and (agg["density_mean"] > config.MAX_PLAUSIBLE_DENSITY
+                                                  or (yld and yld["central"] > config.MAX_PLAUSIBLE_YIELD)))
+    reliable = not (no_heads or implausible)
+    if not reliable:
+        yld = None
+
     # --- context facts
     ev["stage"] = L.fact("Growth stage reported", stage, "", f"{days} days after sowing on {field.sowing_date.isoformat()}")
+    if field.previous_crop.strip():
+        ev["prev"] = L.fact("Previous crop", clean_text(field.previous_crop, 80), "", "entered by the user")
     if location.get("label"):
         ev["region"] = L.fact("Region", location["label"], "", location.get("how", ""))
     area = field.area_ha or location.get("area_ha")
@@ -170,6 +192,8 @@ def analyze(field: FieldInput, photos: list[dict], location: dict, weather: Opti
                            "generic placeholder, not a local value" if ref_is_placeholder else "entered by the user")
         if ref_is_placeholder:
             assumptions.append("The reference head-density band is a generic placeholder. Replace it with a local value.")
+        assumptions.append(f"The head-density interval allows {_r(agg['counter_error'] * 100)}% for counting error "
+                           + ("(after correcting with your hand counts)." if agg["calibrated"] else "(no hand counts were given to correct the counter)."))
         if agg["n_used"] >= 2:
             ev["cv"] = L.fact("Variation between photos", _r(agg["cv_pct"]), "%",
                               f"{agg['n_used']} photos; lower means a more even stand")
@@ -179,7 +203,7 @@ def analyze(field: FieldInput, photos: list[dict], location: dict, weather: Opti
         assumptions.append("Without the ground area of each photo the counts cannot become heads per m² or a yield.")
     if agg.get("n_used"):
         ev["photos"] = L.fact("Photos analysed", agg["n_used"], "photos",
-                              f"{agg['n_photos'] - agg['n_used']} skipped for quality" if agg["n_photos"] != agg["n_used"] else "")
+                              f"{agg['n_photos'] - agg['n_used']} could not be read" if agg["n_photos"] != agg["n_used"] else "")
 
     # --- yield
     if yld:
@@ -210,11 +234,30 @@ def analyze(field: FieldInput, photos: list[dict], location: dict, weather: Opti
     if wx:
         ev["gdd"] = L.fact("Growing degree days since sowing", wx["gdd_since_sowing"], "°C·days", "base 0 °C")
         ev["rain"] = L.fact("Rain since sowing", wx["rain_since_sowing_mm"], "mm", f"data to {wx['last_date']}")
-        ev["balance"] = L.fact("Rain minus crop water use, last 4 weeks", wx["water_balance_28d_mm"], "mm",
+        ev["balance"] = L.fact("Rain minus reference crop water use, last 4 weeks", wx["water_balance_28d_mm"], "mm",
                                f"rain {wx['rain_28d_mm']} mm, reference evapotranspiration {wx['et0_28d_mm']} mm")
         ev["heat"] = L.fact("Hot days (30 °C or more), last 3 weeks", wx["heat_days_21d"], "days",
                             f"peak {wx['tmax_peak_21d']} °C" if wx.get("tmax_peak_21d") is not None else "")
         ev["wet"] = L.fact("Rainy days (1 mm or more), last 2 weeks", wx["rainy_days_14d"], "days", "")
+
+    # --- forecast for the next few days (every label starts with "Forecast" so the validator can tell them apart)
+    fx = forecast["summary"] if forecast and "summary" in forecast else None
+    if fx:
+        n, w = fx["action_days"], fx["wettest"]
+        chance = f", chance up to {fx['chance_5d_pct']}%" if fx["chance_5d_pct"] is not None else ""
+        ev["fc_rain"] = L.fact(f"Forecast rain, next {n} days", fx["rain_5d_mm"], "mm", f"rain on {fx['rain_days_5d']} of {n} days{chance}")
+        if w["mm"] >= config.FORECAST_NOTABLE_MM:
+            ev["fc_wet_day"] = L.fact("Forecast wettest day", w["mm"], "mm",
+                                      w["when"] + (f", chance {w['chance_pct']}%" if w["chance_pct"] is not None else ""))
+        if fx["hot_days_5d"] >= 1:
+            ev["fc_hot"] = L.fact(f"Forecast hot days ({_r(config.FORECAST_HOT_C)} °C or more), next {n} days", fx["hot_days_5d"], "days",
+                                  f"peak {fx['peak_tmax_5d']} °C {fx['peak_when']}")
+        if fx["warm_wet_days_5d"] >= 1:
+            ev["fc_wetwarm"] = L.fact(f"Forecast warm, humid, rainy days, next {n} days", fx["warm_wet_days_5d"], "days",
+                                      f"rain of {_r(config.FORECAST_RAIN_DAY_MM)} mm or more, {_r(config.FORECAST_WET_MIN_TMAX)} °C or warmer, "
+                                      f"humidity {_r(config.FORECAST_WET_MIN_RH)}% or more")
+        assumptions.append(f"The weather forecast is used only for timing advice over the next {n} days. Forecasts get weaker the "
+                           "further ahead they look, and they do not change the yield range.")
 
     # --- soil
     fsrc = soil.get("field_source", {})
@@ -240,7 +283,7 @@ def analyze(field: FieldInput, photos: list[dict], location: dict, weather: Opti
     def drv(label, sev, text, keys):
         L.driver(label, sev, text, [ev[k] for k in keys if k in ev])
 
-    if "density_mean" in agg and heads_known:
+    if "density_mean" in agg and heads_known and reliable:
         m = agg["density_mean"]
         if m < ref_low * 0.85:
             drv("Thin stand", 2, f"Head density is well below the reference band of {_r(ref_low)} to {_r(ref_high)} heads/m².", ["density", "ref"])
@@ -250,7 +293,7 @@ def analyze(field: FieldInput, photos: list[dict], location: dict, weather: Opti
             drv("Very dense stand", 0, "Head density is above the reference band, which can raise lodging risk.", ["density", "ref"])
         else:
             drv("Stand density in range", 0, "Head density is within the reference band.", ["density", "ref"])
-    if "cv" in ev:
+    if "cv" in ev and reliable:
         cv = agg["cv_pct"]
         if cv >= config.CV_HIGH:
             drv("Uneven stand", 2, f"Head density varies a lot between photo points ({_r(cv)}%).", ["cv", "gradient", "lowest"])
@@ -260,9 +303,9 @@ def analyze(field: FieldInput, photos: list[dict], location: dict, weather: Opti
         bal = wx["water_balance_28d_mm"]
         if bal <= -60:
             sev = 1 if field.irrigated else 2
-            drv("Water shortage", sev, f"Rain is {_r(-bal)} mm short of crop water use over the last 4 weeks.", ["balance"])
+            drv("Water shortage", sev, f"Rain is {_r(-bal)} mm below reference crop water use over the last 4 weeks (stored soil moisture can cover part of that).", ["balance"])
         elif bal <= -30:
-            drv("Some water shortage", 1, f"Rain is {_r(-bal)} mm short of crop water use over the last 4 weeks.", ["balance"])
+            drv("Some water shortage", 1, f"Rain is {_r(-bal)} mm below reference crop water use over the last 4 weeks (stored soil moisture can cover part of that).", ["balance"])
     if wx and stage in ("Flowering", "Grain fill"):
         hd = wx["heat_days_21d"]
         if hd >= 8:
@@ -290,7 +333,7 @@ def analyze(field: FieldInput, photos: list[dict], location: dict, weather: Opti
         drv("Forecast below target", 1, "The central yield forecast is more than 15% below the target entered.", ["yield", "target"])
     prev = field.previous_crop.lower()
     if any(w in prev for w in ("wheat", "barley", "triticale", "rye", "cereal")):
-        drv("Cereal after cereal", 0, "The previous crop was a cereal, which carries disease over to this crop.", ["stage"])
+        drv("Cereal after cereal", 0, "The previous crop was a cereal, which carries disease over to this crop.", ["prev"])
 
     # =========================================================== candidate actions
     D = {d["label"]: d for d in L.drivers}
@@ -301,6 +344,10 @@ def analyze(field: FieldInput, photos: list[dict], location: dict, weather: Opti
             out += D[lab]["evidence"] if lab in D else []
         return sorted(set(out), key=lambda s: int(s[1:]))
 
+    if no_heads:
+        L.action("this_season", "No wheat heads were found in any photo. Check that the photos show wheat heads at the stated growth stage, are sharp and well lit, and then analyze again.", [ev["photos"]] if "photos" in ev else [], confirm=False, must=True)
+    if implausible:
+        L.action("this_season", "The head density is higher than wheat can reach, so the photo ground area is probably wrong. Check the frame size of each photo, enter it again, and analyze again.", [ev["density"]] if "density" in ev else [], confirm=False, must=True)
     if yld:
         L.action("this_season", "Use the yield range for harvest planning, storage and marketing, and count again nearer maturity.",
                  [ev[k] for k in ("yield", "total") if k in ev], confirm=False)
@@ -314,6 +361,55 @@ def analyze(field: FieldInput, photos: list[dict], location: dict, weather: Opti
         L.action("this_season", "Walk the field to look for head diseases. A licensed local advisor decides whether any treatment is worth it, and which product and timing the label allows.", ids("Wet spell"), confirm=True, must=True)
     if "Heat stress" in D or "Some heat stress" in D:
         L.action("this_season", "Expect fewer or lighter grains after the heat. Count again later and treat the low end of the range as more likely.", ids("Heat stress" if "Heat stress" in D else "Some heat stress"), confirm=False)
+    # --- what the forecast changes in the next few days. Each rule needs the growth stage to make sense.
+    outlook: list[dict] = []
+    if fx:
+        shortage = "Water shortage" in D or "Some water shortage" in D
+        irrigates = field.irrigated and stage in ("Heading", "Flowering", "Grain fill")
+        hot_flag = fx["hot_days_5d"] >= config.FORECAST_HOT_DAYS and stage in ("Flowering", "Grain fill")
+        wet_flag = fx["warm_wet_days_5d"] >= config.FORECAST_WET_DAYS and stage in ("Heading", "Flowering", "Grain fill")
+        harvest_rain = stage == "Ripening" and fx["rain_sig_5d"]
+        n, w = fx["action_days"], fx["wettest"]
+
+        def evs(*keys):
+            return sorted({ev[k] for k in keys if k in ev}, key=lambda s: int(s[1:]))
+
+        shortage_lab = "Water shortage" if "Water shortage" in D else "Some water shortage"
+        if irrigates and shortage and fx["dry_5d"]:
+            L.action("next_days", "Irrigate within the next two days. No useful rain is forecast and the crop is already short of water.",
+                     sorted(set(ids(shortage_lab)) | set(evs("fc_rain")), key=lambda s: int(s[1:])), confirm=False, must=True)
+        if irrigates and fx["rain_soon_3d"]:
+            L.action("next_days", "Hold off irrigating until the forecast rain has fallen, then check soil moisture and irrigate only if the shortage remains.",
+                     evs("fc_rain", "fc_wet_day"), confirm=False, must=shortage)
+        if hot_flag:
+            L.action("next_days",
+                     ("Water the crop before and during the forecast hot days if you can, so it does not run short while it is hot."
+                      if field.irrigated else
+                      "Hot days are forecast at a heat-sensitive stage. Water cannot be added to a rain-fed crop, so note the dates and count again afterwards."),
+                     evs("fc_hot"), confirm=False, must=True)
+        if wet_flag and "Wet spell" not in D:           # the past-weather rule already asks for a field walk
+            L.action("next_days", "The forecast raises disease risk. Walk the field in the next few days and look for head diseases. A licensed local advisor decides whether any treatment is worth it, and which product and timing the label allows.",
+                     evs("fc_wetwarm", "stage"), confirm=True, must=True)
+        if harvest_rain:
+            L.action("next_days", "Rain is forecast before harvest. If the grain is nearly ready, think about cutting before the rain arrives, or plan for delays and for drying the grain.",
+                     evs("fc_rain", "fc_wet_day"), confirm=False, must=True)
+
+        if fx["dry_5d"]:
+            line = f"No useful rain is forecast for the next {n} days." + (" The crop is already short of water." if shortage else "")
+        else:
+            line = (f"About {fx['rain_5d_mm']:g} mm of rain is forecast over the next {n} days"
+                    + (f", most of it {w['when']} ({w['mm']:g} mm)" if w["mm"] >= config.FORECAST_NOTABLE_MM else "") + ".")
+        watch = (irrigates and ((shortage and fx["dry_5d"]) or fx["rain_soon_3d"])) or harvest_rain
+        outlook.append({"text": line, "evidence": evs("fc_rain", "fc_wet_day") + (ids(shortage_lab) if shortage and fx["dry_5d"] else []),
+                        "level": "watch" if watch else "info"})
+        if hot_flag:
+            outlook.append({"text": f"{fx['hot_days_5d']} hot days ({_r(config.FORECAST_HOT_C)} °C or more) are forecast in the next {n} days, "
+                                    f"peaking at {fx['peak_tmax_5d']:g} °C {fx['peak_when']}. Heat now can reduce grain number and weight.",
+                            "evidence": evs("fc_hot"), "level": "watch"})
+        if wet_flag:
+            outlook.append({"text": f"{fx['warm_wet_days_5d']} warm, humid, rainy days are forecast in the next {n} days, which favours head diseases.",
+                            "evidence": evs("fc_wetwarm", "stage"), "level": "watch"})
+
     if "Uneven stand" in D or "Somewhat uneven stand" in D:
         lab = "Uneven stand" if "Uneven stand" in D else "Somewhat uneven stand"
         L.action("this_season", "Walk the thinnest photo points and look for the cause: waterlogging, compaction, weeds, pests or disease. Note what you find with a photo.",
@@ -339,7 +435,7 @@ def analyze(field: FieldInput, photos: list[dict], location: dict, weather: Opti
     # =========================================================== verdict + confidence
     majors = sum(1 for d in L.drivers if d["severity"] >= 2)
     total = sum(d["severity"] for d in L.drivers)
-    if not heads_known:
+    if not heads_known or not reliable:
         label = "Not enough information"
     elif majors >= 2 or total >= 5:
         label = "Poor"
@@ -349,6 +445,10 @@ def analyze(field: FieldInput, photos: list[dict], location: dict, weather: Opti
         label = "Good"
 
     conf_pts, reasons = 100, []
+    if no_heads:
+        conf_pts -= 50; reasons.append("no wheat heads were found in any photo")
+    if implausible:
+        conf_pts -= 50; reasons.append("the head density is higher than wheat can reach (check the photo area)")
     if not heads_known:
         conf_pts -= 50; reasons.append("heads are not visible at this stage")
     if agg.get("n_used", 0) < 5:
@@ -371,6 +471,10 @@ def analyze(field: FieldInput, photos: list[dict], location: dict, weather: Opti
     assumptions.append("Advice is decision support. Confirm fertilizer and spray decisions with a local agronomist.")
 
     open_q = []
+    if no_heads:
+        open_q.append("Do the photos show wheat heads, and is the growth stage right?")
+    if implausible:
+        open_q.append("What is the ground area covered by each photo?")
     if not field.inputs_applied.strip():
         open_q.append("What fertilizer and sprays have been applied so far this season?")
     if not field.soil.provided:
@@ -381,14 +485,15 @@ def analyze(field: FieldInput, photos: list[dict], location: dict, weather: Opti
         open_q.append("Do you know the usual kernels per head and kernel weight for this variety?")
 
     packet = {
-        "field": {"name": field.name, "crop": field.crop, "variety": field.variety or "not given",
+        "field": {"name": clean_text(field.name, 80), "crop": field.crop, "variety": clean_text(field.variety, 80) or "not given",
                   "stage": stage, "days_since_sowing": days, "irrigated": field.irrigated,
                   "region": location.get("label") or "unknown", "area_ha": _r(area, 1) if area else None,
-                  "previous_crop": field.previous_crop or "not given", "inputs_applied": field.inputs_applied or "not given",
-                  "problems_noticed": field.problems_noticed or "none given"},
+                  "previous_crop": clean_text(field.previous_crop, 80) or "not given",
+                  "inputs_applied": clean_text(field.inputs_applied, 300) or "not given",
+                  "problems_noticed": clean_text(field.problems_noticed, 300) or "none given"},
         "verdict": {"label": label, "confidence": conf_label, "confidence_reasons": reasons},
         "stage_note": knowledge.stage_note(stage),
-        "evidence": L.evidence, "drivers": L.drivers, "candidate_actions": L.actions,
+        "evidence": L.evidence, "drivers": L.drivers, "outlook": outlook, "candidate_actions": L.actions,
         "assumptions": assumptions, "open_questions": open_q, "gaps": [g["message"] for g in gaps],
     }
     return {"packet": packet, "aggregate": agg, "yield": yld, "spatial": spat, "verdict": label,
