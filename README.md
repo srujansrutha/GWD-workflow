@@ -149,7 +149,7 @@ On an 8 GB RTX 5050 laptop GPU the counter takes about 20 to 150 ms per 1024 × 
 
 ## Quick start
 
-> The trained weights are **not** in the repository (model files are kept out of Git). Train them with the notebooks (see [docs/TRAINING.md](docs/TRAINING.md#10-reproducing-the-project)) or point `WHEAT_MODEL` at your own YOLO weights. The tests and the whole workflow logic run without them.
+> **The trained detector (19 MB) is not in the repository** (model files are kept out of Git). Download it from the [v1.0 release](https://github.com/srujansrutha/GWD-workflow/releases/tag/v1.0), or train your own with the notebooks ([docs/TRAINING.md](docs/TRAINING.md#10-reproducing-the-project)), or point `WHEAT_MODEL` at any YOLO weights. The tests and the whole workflow logic run without it. Licence and checksum: [Detector weights](#detector-weights).
 
 ```bash
 git clone https://github.com/srujansrutha/GWD-workflow.git
@@ -161,7 +161,10 @@ pip install -r requirements.txt   # for a GPU, install a CUDA build of PyTorch f
 
 ollama pull qwen3.5:9b            # the report writer (needs a recent Ollama)
 
-# put your weights at weights/wheat_yolo11s_gwhd21.pt, or: set WHEAT_MODEL=path\to\best.pt
+# the detector weights, from the release (or: set WHEAT_MODEL=path\to\best.pt)
+mkdir weights
+curl -L -o weights/wheat_yolo11s_gwhd21.pt https://github.com/srujansrutha/GWD-workflow/releases/download/v1.0/wheat_yolo11s_gwhd21.pt
+
 frontend\run_app.bat              # Linux/macOS: ./frontend/run_app.sh
 ```
 
@@ -269,9 +272,21 @@ The forecast is Open-Meteo's own; this project does not train or run a weather m
 - The validator checks numbers, products, doses and wording rules, not every claim in the prose.
 - Not built yet: satellite vegetation zones, PDF export, accounts and a database. It is a single-user, single-machine app.
 
+## Detector weights
+
+`wheat_yolo11s_gwhd21.pt` is the deployed detector: YOLO11s fine-tuned from Ultralytics' pretrained YOLO11s on the old data plus 1,707 new-farm images (the row marked in bold under [Results](#results)). It is attached to the [v1.0 release](https://github.com/srujansrutha/GWD-workflow/releases/tag/v1.0), not stored in Git.
+
+| | |
+| --- | --- |
+| Size | 19,261,210 bytes (19 MB) |
+| SHA-256 | `2eea0ca6d93953707847ac56198d2a501af6a8e2152a1694ac5a7d6eb1264b3a` |
+| Check it | `sha256sum weights/wheat_yolo11s_gwhd21.pt` (Linux, macOS) or `Get-FileHash weights\wheat_yolo11s_gwhd21.pt` (PowerShell) |
+| Licence | **AGPL-3.0.** It is derived from Ultralytics YOLO11, which is AGPL-3.0 (Ultralytics also sells an Enterprise licence for commercial use). Treat the weights as AGPL-3.0, not MIT, even though the code here is MIT. |
+| Data credit | Trained on the Global Wheat Head Dataset (see Credits below). Please cite David et al. if you reuse the weights |
+
 ## Credits and licence
 
-- **Data:** Global Wheat Head Dataset, David et al., *Plant Phenomics* 2020 (the Kaggle *Global Wheat Detection* data) and *Global Wheat Head Dataset 2021: more diversity to improve the benchmarking of wheat head localization methods*, arXiv:2105.07660, [DOI 10.5281/zenodo.5092309](https://doi.org/10.5281/zenodo.5092309) (CC BY 4.0). The demo photos in the screenshots come from this data.
+- **Data:** Global Wheat Head Dataset, David et al., *Plant Phenomics* 2020 ([Zenodo release](https://zenodo.org/records/4298502), MIT licence; the training data came from the Kaggle *Global Wheat Detection* copy of it) and *Global Wheat Head Dataset 2021: more diversity to improve the benchmarking of wheat head localization methods*, arXiv:2105.07660, [DOI 10.5281/zenodo.5092309](https://doi.org/10.5281/zenodo.5092309) (CC BY 4.0). The demo photos in the screenshots come from this data.
 - **Detector:** [Ultralytics YOLO11](https://github.com/ultralytics/ultralytics) (AGPL-3.0). **Workflow:** [LangGraph](https://github.com/langchain-ai/langgraph). **Local LLM:** [Ollama](https://ollama.com) with `qwen3.5:9b`.
 - **Online lookups:** weather and forecast by [Open-Meteo](https://open-meteo.com), place names from OpenStreetMap Nominatim, soil estimates from ISRIC SoilGrids, satellite basemap by Esri.
 - The code in this repository is released under the [MIT licence](LICENSE). Dependencies keep their own licences (note that Ultralytics is AGPL-3.0).

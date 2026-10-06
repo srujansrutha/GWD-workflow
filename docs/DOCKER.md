@@ -38,7 +38,7 @@ You need:
 
 - **Docker**: Docker Desktop (Windows, macOS) or Docker Engine with the Compose plugin (Linux). Check with `docker compose version`.
 - **About 20 GB of free disk**: the app image is about 3 GB, the Ollama image 9.4 GB and the model 6.6 GB. The GPU image is larger because it carries the CUDA libraries.
-- **The detector weights** at `weights/wheat_yolo11s_gwhd21.pt`. They are not in the repository. Train them with the notebooks ([TRAINING.md](TRAINING.md#10-reproducing-the-project)) or use your own YOLO weights. Without them the app starts but shows "No model weights found".
+- **The detector weights** at `weights/wheat_yolo11s_gwhd21.pt` (19 MB). They are not in the Git repository; download them from the [v1.0 release](https://github.com/srujansrutha/GWD-workflow/releases/tag/v1.0) (step 4 shows the command). You can also train your own with the notebooks ([TRAINING.md](TRAINING.md#10-reproducing-the-project)) or use any YOLO weights. Without them the app starts but shows "No model weights found".
 - **For GPU mode only**: an NVIDIA GPU with a recent driver and GPU support in Docker (Docker Desktop with WSL 2 on Windows, or the NVIDIA Container Toolkit on Linux).
 
 ## 3. There is no ready-made image to download
@@ -51,8 +51,10 @@ The image is **not** published to Docker Hub or any other registry, so `docker p
 git clone https://github.com/srujansrutha/GWD-workflow.git
 cd GWD-workflow
 
-# put your detector weights in place
-mkdir -p weights && cp /path/to/wheat_yolo11s_gwhd21.pt weights/
+# download the detector weights from the release (19 MB) into weights/
+mkdir -p weights
+curl -L -o weights/wheat_yolo11s_gwhd21.pt https://github.com/srujansrutha/GWD-workflow/releases/download/v1.0/wheat_yolo11s_gwhd21.pt
+# PowerShell: mkdir weights; Invoke-WebRequest https://github.com/srujansrutha/GWD-workflow/releases/download/v1.0/wheat_yolo11s_gwhd21.pt -OutFile weights\wheat_yolo11s_gwhd21.pt
 
 # build and start everything (pick ONE of these two, see section 5)
 docker compose up --build                                          # CPU: works on any computer
