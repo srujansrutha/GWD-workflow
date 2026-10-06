@@ -172,6 +172,21 @@ Run the tests (about 3 seconds, no GPU, network or model needed):
 python -m pytest
 ```
 
+## Data sources and libraries
+
+Some parts are **libraries** you install with `pip`. Others are **online services** the app asks over the internet while it runs. No API keys are needed.
+
+| What | Used for | Kind |
+| --- | --- | --- |
+| [Folium](https://python-visualization.github.io/folium/) (built on Leaflet.js) and `streamlit-folium` | The interactive map, the field pin and drawing the boundary | Python libraries |
+| Esri World Imagery, OpenStreetMap | Satellite (default) and street map tiles | Online services |
+| [Open-Meteo](https://open-meteo.com) archive and forecast | Weather since sowing and the next 7 days (rain, chance of rain, temperature, humidity, crop water use) | Online service |
+| OpenStreetMap Nominatim | Place name for the pin | Online service |
+| ISRIC SoilGrids | Soil estimate when no soil test is entered | Online service |
+| `requests` | Makes the calls to those services | Python library |
+
+The forecast is Open-Meteo's own; this project does not train or run a weather model. It only turns those numbers into timing advice for the next 5 days. Only the field's position, rounded to about 1 km, is sent. The map, weather and forecast need internet; counting heads and writing the report do not (without weather the report skips the weather checks).
+
 ## Repository layout
 
 ```text
