@@ -23,6 +23,12 @@
 
 A farmer or agronomist uploads photos of a wheat field and describes it (where, which crop, soil, history). The app counts the wheat heads, places every photo on a map, adds the weather since sowing, a short forecast and soil data, and writes a report: **how the field is doing, why, and what to do next.**
 
+<div align="center">
+<img src="docs/images/wheat-anatomy.jpg" alt="Diagram of a wheat plant, a close-up of one wheat head (spike) and a single kernel, with about 35 kernels laid out beside a head" width="760">
+</div>
+
+*What is being counted: the wheat **head** (spike) at the top of each plant. In this illustration one head holds about 35 **kernels**.* A head count is one part of yield (heads per m² × kernels per head × kernel weight). The detector counts the heads in the photos, and the report uses generic defaults of 28 to 40 kernels per head unless the user enters their own.
+
 It is three pieces that share one codebase:
 
 | Piece | What it does | Where |
