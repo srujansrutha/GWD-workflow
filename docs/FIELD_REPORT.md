@@ -27,6 +27,8 @@ Settings are environment variables (defaults in `frontend/advisor/config.py`):
 
 If Ollama is stopped or the model is missing, the page says so and still produces a report using the rule-based wording.
 
+To run the app and Ollama in Docker instead, see [Run with Docker](../README.md#run-with-docker) in the README. Inside Docker the app reaches Ollama at `http://ollama:11434` (the service name), not `localhost`.
+
 ## 2. What you enter
 
 | Step | Inputs |

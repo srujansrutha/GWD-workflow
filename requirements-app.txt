@@ -1,0 +1,16 @@
+# What the Streamlit app needs to run. The Docker image installs only this file.
+# In Docker, PyTorch is installed first from the CPU or CUDA wheel index, so the line below is already satisfied.
+ultralytics>=8.4
+torch>=2.5
+numpy>=1.26
+pandas>=2.2
+Pillow>=10.0
+pillow-heif>=1.0
+streamlit>=1.40
+langgraph>=1.0
+ollama>=0.6
+folium>=0.20
+streamlit-folium>=0.27
+requests>=2.31
+pydantic>=2.6
+scipy>=1.11

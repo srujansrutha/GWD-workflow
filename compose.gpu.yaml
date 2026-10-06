@@ -1,0 +1,27 @@
+# Adds an NVIDIA GPU to both containers and builds the app with CUDA PyTorch.
+#   docker compose -f compose.yaml -f compose.gpu.yaml up --build
+# Needs an NVIDIA driver on the host and GPU support in Docker (Docker Desktop with WSL 2 on Windows,
+# or the NVIDIA Container Toolkit on Linux). CUDA 13 wheels need a recent driver; for an older one set
+# TORCH_CUDA_INDEX=https://download.pytorch.org/whl/cu128 before building.
+services:
+  app:
+    build:
+      args:
+        TORCH_INDEX_URL: ${TORCH_CUDA_INDEX:-https://download.pytorch.org/whl/cu130}
+    image: wheat-advisor-app:gpu
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

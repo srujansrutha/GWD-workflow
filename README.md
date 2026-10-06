@@ -10,6 +10,7 @@
 ![LangGraph](https://img.shields.io/badge/workflow-LangGraph-1C3C3C)
 ![Ollama](https://img.shields.io/badge/LLM-Ollama%20%C2%B7%20qwen3.5%3A9b-000000)
 ![Streamlit](https://img.shields.io/badge/app-Streamlit-FF4B4B?logo=streamlit&logoColor=white)
+![Docker](https://img.shields.io/badge/run%20with-Docker-2496ED?logo=docker&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 <img src="docs/images/demo.gif" alt="Walkthrough of the Wheat Advisor app: counting heads, filling in a field, and reading the report" width="860">
@@ -172,6 +173,45 @@ Run the tests (about 3 seconds, no GPU, network or model needed):
 python -m pytest
 ```
 
+## Run with Docker
+
+[compose.yaml](compose.yaml) runs the app and its language model as separate containers, the same way a website splits frontend and backend:
+
+| Container | Kind | What it does |
+| --- | --- | --- |
+| `app` | service, keeps running | The Streamlit app: detector, LangGraph workflow and both pages, on port 8501 |
+| `ollama` | service, keeps running | The local LLM server. Downloaded models live in a Docker volume, not in an image |
+| `ollama-pull` | one-shot job | Downloads `qwen3.5:9b` (about 6.6 GB) the first time, then exits |
+
+The image holds only code and libraries ([docker/app.Dockerfile](docker/app.Dockerfile), built from [requirements-app.txt](requirements-app.txt)). The trained weights are **mounted** from `weights/` read-only, so put `wheat_yolo11s_gwhd21.pt` there first.
+
+There is no ready-made image to `docker pull`: Docker **builds** the app image on your computer from this repository (the Ollama containers use the public `ollama/ollama` image). You choose one of the two commands below; Docker does not try the GPU one first and fall back. [compose.gpu.yaml](compose.gpu.yaml) only adds the GPU on top of [compose.yaml](compose.yaml), and it is separate because a GPU request makes Docker refuse to start on a computer with no NVIDIA GPU.
+
+```bash
+# NVIDIA GPU (Docker Desktop with WSL 2, or the NVIDIA Container Toolkit on Linux)
+docker compose -f compose.yaml -f compose.gpu.yaml up --build
+
+# CPU only: works anywhere, but the report model is slow without a GPU
+docker compose up --build
+```
+
+`up` starts the containers, and `--build` builds the app image first if it is missing or the code changed. Open <http://localhost:8501>. The first start builds the image and downloads the report model, so it takes a while; check progress with `docker compose ps -a` and `docker compose logs -f`. The port is bound to this computer only, because the app has no login.
+
+**Every command, the settings, disk use, cleanup and fixes for common errors are in [docs/DOCKER.md](docs/DOCKER.md).**
+
+Already running Ollama on your computer? Skip the Ollama containers and point the app at it:
+
+```bash
+ADVISOR_OLLAMA_URL=http://host.docker.internal:11434 docker compose up --build --no-deps app
+# PowerShell: $env:ADVISOR_OLLAMA_URL="http://host.docker.internal:11434"; docker compose up --build --no-deps app
+```
+
+If the app says Ollama is not running, the host's Ollama is probably listening on `localhost` only: start it with `OLLAMA_HOST=0.0.0.0` (or turn on "Expose Ollama to the network" in its settings), ideally behind a firewall, because Ollama has no password.
+
+The model is only downloaded when it is missing, so a newer upstream version never replaces the tested one by surprise. Update it on purpose with `docker compose exec ollama ollama pull qwen3.5:9b`. Stop everything with `docker compose down`; the model volume stays, and `docker compose down -v` removes it too.
+
+The CPU image is about 3 GB (most of it PyTorch); the GPU image is larger because it carries the CUDA libraries. Rebuild now and then with `docker compose build --pull` to pick up security fixes in the Debian base image. CI builds the image and checks that the app starts on every push.
+
 ## Data sources and libraries
 
 Some parts are **libraries** you install with `pip`. Others are **online services** the app asks over the internet while it runs. No API keys are needed.
@@ -206,13 +246,17 @@ The forecast is Open-Meteo's own; this project does not train or run a weather m
 │   └── tests/test_advisor.py        116 tests
 ├── notebooks/                       Data preparation, training and evaluation
 ├── docs/                            Guides (below) and screenshots
+├── docker/app.Dockerfile           The app image (code and libraries only)
+├── compose.yaml, compose.gpu.yaml   The app and Ollama containers, CPU or NVIDIA GPU
+├── requirements-app.txt             What the app needs to run (used by the image)
 ├── requirements.txt, ruff.toml, pytest.ini
-└── .github/workflows/ci.yml         Lint and tests on every push
+└── .github/workflows/ci.yml         Lint, tests and a Docker build on every push
 ```
 
 | Document | What is in it |
 | --- | --- |
 | [docs/FIELD_REPORT.md](docs/FIELD_REPORT.md) | The report workflow, validation, forecast logic, chat, privacy table, model choice and limits |
+| [docs/DOCKER.md](docs/DOCKER.md) | Running with Docker: what each container does, which command to use, every command explained, settings, cleanup, troubleshooting |
 | [docs/TRAINING.md](docs/TRAINING.md) | The training guide: dataset, split design, every setting and why, experiments, problems met |
 | [docs/METRICS.md](docs/METRICS.md) | Detection and counting metrics explained, with this project's numbers |
 | [docs/field_advisor_plan.html](docs/field_advisor_plan.html) | The original plan and design reasoning (open the file in a browser) |

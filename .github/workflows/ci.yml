@@ -33,3 +33,35 @@ jobs:
       - name: Tests
         # No GPU, network or language model is needed: the detector, weather, forecast and geocoder are stubbed.
         run: python -m pytest
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check both compose files
+        run: |
+          docker compose config --quiet
+          docker compose -f compose.yaml -f compose.gpu.yaml config --quiet
+
+      - name: Build the app image (CPU)
+        run: docker compose build app
+
+      - name: Start the app and wait for its health check
+        run: |
+          docker compose up -d --no-deps app
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:8501/_stcore/health && break
+            sleep 4
+          done
+          curl -fsS http://localhost:8501/_stcore/health
+          docker compose exec -T app python -c "import advisor.graph, wheat_detector; print('imports ok')"
+
+      - name: App logs
+        if: failure()
+        run: docker compose logs app
+
+      - name: Stop
+        if: always()
+        run: docker compose down

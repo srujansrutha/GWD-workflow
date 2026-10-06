@@ -1,0 +1,58 @@
+# Wheat Advisor: the app plus a local LLM server, each in its own container.
+#
+#   docker compose up --build                                       CPU only, works anywhere
+#   docker compose -f compose.yaml -f compose.gpu.yaml up --build   with an NVIDIA GPU
+#
+# Then open http://localhost:8501. The first start downloads the report model (about 6.6 GB).
+name: wheat-advisor
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+    image: wheat-advisor-app:cpu
+    ports:
+      - "127.0.0.1:${APP_PORT:-8501}:8501"        # this computer only: the app has no login
+    environment:
+      # A separate name, so an OLLAMA_HOST already set on your machine is not picked up by mistake.
+      OLLAMA_HOST: ${ADVISOR_OLLAMA_URL:-http://ollama:11434}
+      ADVISOR_MODEL: ${ADVISOR_MODEL:-qwen3.5:9b}
+    volumes:
+      - ./weights:/app/weights:ro                 # trained detector weights, never inside the image
+      - advisor-cache:/app/frontend/advisor/cache # cached weather, forecast and place names
+    extra_hosts:
+      - "host.docker.internal:host-gateway"       # lets the app use an Ollama running on the host instead
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:0.35.1
+    volumes:
+      - ollama-models:/root/.ollama               # downloaded LLMs live here, outside any image
+    environment:
+      OLLAMA_KEEP_ALIVE: 10m
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  ollama-pull:                                    # a one-shot job: download the report model if missing, then exit
+    image: ollama/ollama:0.35.1
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      MODEL: ${ADVISOR_MODEL:-qwen3.5:9b}
+    # Only when missing, so a newer upstream version is never swapped in (or downloaded) behind your back.
+    # Update on purpose with: docker compose exec ollama ollama pull qwen3.5:9b
+    entrypoint: ["/bin/sh", "-c", "ollama show \"$$MODEL\" >/dev/null 2>&1 && echo \"$$MODEL is already installed\" || ollama pull \"$$MODEL\""]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  ollama-models:
+  advisor-cache:
